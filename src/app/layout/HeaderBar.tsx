@@ -1,8 +1,10 @@
 import { Layout, Dropdown, Avatar, Typography } from 'antd';
-import { UserOutlined, LogoutOutlined } from '@ant-design/icons';
+import { UserOutlined, LogoutOutlined, LockOutlined } from '@ant-design/icons';
 import { useNavigate } from 'react-router-dom';
+import { useState } from 'react';
 import { useAuthStore } from '@/store/auth.store';
 import { websocketService } from '@/services/websocket';
+import { ChangePasswordModal } from '@/features/auth/ChangePasswordModal';
 import type { MenuProps } from 'antd';
 
 const { Header } = Layout;
@@ -11,6 +13,7 @@ const { Text } = Typography;
 export const HeaderBar = () => {
     const navigate = useNavigate();
     const { user, logout } = useAuthStore();
+    const [isChangePasswordVisible, setIsChangePasswordVisible] = useState(false);
 
     const handleLogout = () => {
         websocketService.disconnect();
@@ -20,62 +23,84 @@ export const HeaderBar = () => {
 
     const menuItems: MenuProps['items'] = [
         {
+            key: 'change-password',
+            icon: <LockOutlined />,
+            label: 'Change Password',
+            onClick: () => setIsChangePasswordVisible(true),
+        },
+        {
+            type: 'divider',
+        },
+        {
             key: 'logout',
             icon: <LogoutOutlined />,
             label: 'Logout',
-            onClick: handleLogout,
+            onClick: () => handleLogout(),
         },
     ];
 
     return (
-        <Header
-            style={{
-                background: '#fff',
-                padding: '0 24px',
-                display: 'flex',
-                justifyContent: 'flex-end',
-                alignItems: 'center',
-                borderBottom: '1px solid #f0f0f0',
-            }}
-        >
-            <Dropdown menu={{ items: menuItems }} placement="bottomRight">
-                <div
-                    style={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        cursor: 'pointer',
-                        padding: '8px 12px',
-                        borderRadius: 8,
-                        transition: 'background-color 0.2s',
-                    }}
-                    onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#f5f5f5'}
-                    onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
-                >
-                    <Avatar
-                        icon={<UserOutlined />}
+        <>
+            <Header
+                style={{
+                    background: '#fff',
+                    padding: '0 32px',
+                    display: 'flex',
+                    justifyContent: 'flex-end',
+                    alignItems: 'center',
+                    borderBottom: '1px solid #f1f5f9',
+                    height: 64,
+                    position: 'sticky',
+                    top: 0,
+                    zIndex: 99,
+                    boxShadow: '0 1px 2px 0 rgba(0, 0, 0, 0.03)',
+                }}
+            >
+                <Dropdown menu={{ items: menuItems }} placement="bottomRight" arrow>
+                    <div
                         style={{
-                            backgroundColor: '#1890ff',
-                            marginRight: 12
+                            display: 'flex',
+                            alignItems: 'center',
+                            cursor: 'pointer',
+                            padding: '4px 8px',
+                            borderRadius: 8,
+                            transition: 'all 0.2s',
                         }}
-                        size="large"
-                    />
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-                        <Text strong style={{ fontSize: 14, lineHeight: 1.2 }}>
-                            {user?.name}
-                        </Text>
-                        <Text
-                            type="secondary"
+                        onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#f8fafc'}
+                        onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
+                    >
+                        <Avatar
+                            icon={<UserOutlined />}
                             style={{
-                                fontSize: 12,
-                                lineHeight: 1.2,
-                                textTransform: 'capitalize'
+                                backgroundColor: '#1677ff',
+                                marginRight: 12,
+                                boxShadow: '0 2px 4px rgba(22, 119, 255, 0.2)'
                             }}
-                        >
-                            {user?.role}
-                        </Text>
+                            size="default"
+                        />
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 0 }}>
+                            <Text strong style={{ fontSize: 13, lineHeight: 1.4, color: '#1e293b' }}>
+                                {user?.first_name} {user?.last_name}
+                            </Text>
+                            <Text
+                                type="secondary"
+                                style={{
+                                    fontSize: 11,
+                                    lineHeight: 1,
+                                    textTransform: 'capitalize',
+                                    color: '#64748b'
+                                }}
+                            >
+                                {user?.role}
+                            </Text>
+                        </div>
                     </div>
-                </div>
-            </Dropdown>
-        </Header>
+                </Dropdown>
+            </Header>
+            <ChangePasswordModal
+                open={isChangePasswordVisible}
+                onCancel={() => setIsChangePasswordVisible(false)}
+            />
+        </>
     );
 };

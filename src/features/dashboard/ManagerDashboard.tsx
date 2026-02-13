@@ -82,7 +82,7 @@ export const ManagerDashboard = () => {
             title: 'Status',
             dataIndex: 'status',
             key: 'status',
-            render: (status: 'active' | 'idle' | 'stopped') => <StatusBadge status={status} />,
+            render: (status: 'active' | 'paused' | 'idle' | 'stopped') => <StatusBadge status={status} />,
         },
     ];
 

@@ -1,5 +1,5 @@
-import { Row, Col, Card, Typography, Table, Statistic, Button } from 'antd';
-import { DownloadOutlined } from '@ant-design/icons';
+import { Row, Col, Card, Typography, Table, Statistic, Button, Space } from 'antd';
+import { DownloadOutlined, ArrowUpOutlined, TeamOutlined, DesktopOutlined } from '@ant-design/icons';
 import { useQuery } from '@tanstack/react-query';
 import { OnlineUsersPanel } from '@/components/OnlineUsersPanel';
 import { AlertsPanel } from '@/components/AlertsPanel';
@@ -10,37 +10,33 @@ import { RealtimeCounter } from '@/components/RealtimeCounter';
 import { StatusBadge } from '@/components/StatusBadge';
 import { LoadingSkeleton } from '@/components/LoadingSkeleton';
 import { formatDateTime, formatDuration, exportToCSV } from '@/utils/format';
+import { getActiveSessions } from '@/features/sessions/sessions.api';
+import { getUsers } from '@/features/users/users.api';
 import api from '@/services/api';
-import type { Session, User, UserComparisonData, ProductivityChartData } from '@/types';
+import type { WorkSession, User, UserComparisonData, ProductivityChartData } from '@/types';
 
-const { Title } = Typography;
+const { Title, Text } = Typography;
 
 export const AdminDashboard = () => {
     // Fetch all active sessions
-    const { data: activeSessions = [], isLoading: sessionsLoading } = useQuery<Session[]>({
+    const { data: activeSessions = [], isLoading: sessionsLoading } = useQuery<WorkSession[]>({
         queryKey: ['sessions', 'active'],
-        queryFn: async () => {
-            const response = await api.get('/sessions?status=active');
-            return response.data;
-        },
-        refetchInterval: 10000, // Refetch every 10 seconds
+        queryFn: getActiveSessions,
+        refetchInterval: 10000,
     });
 
     // Fetch all users
     const { data: users = [] } = useQuery<User[]>({
         queryKey: ['users'],
-        queryFn: async () => {
-            const response = await api.get('/users');
-            return response.data;
-        },
+        queryFn: () => getUsers(),
     });
 
     // Fetch productivity data
     const { data: productivityData = [], isLoading: productivityLoading } = useQuery<UserComparisonData[]>({
         queryKey: ['productivity', 'overview'],
         queryFn: async () => {
-            const response = await api.get('/reports/productivity-overview');
-            return response.data;
+            const response = await api.get('/reports/organization/analytics');
+            return response.data.users || [];
         },
     });
 
@@ -48,26 +44,26 @@ export const AdminDashboard = () => {
     const { data: dailyData = [], isLoading: dailyLoading } = useQuery<ProductivityChartData[]>({
         queryKey: ['reports', 'daily'],
         queryFn: async () => {
-            const response = await api.get('/reports/daily-summary');
-            return response.data;
+            const response = await api.get('/reports/daily');
+            return response.data.history || [];
         },
     });
 
-    // Calculate org metrics
-    const totalActiveTime = productivityData.reduce((sum, u) => sum + u.activeTime, 0);
-    const totalIdleTime = productivityData.reduce((sum, u) => sum + u.idleTime, 0);
     const avgProductivity =
         productivityData.length > 0
             ? productivityData.reduce((sum, u) => sum + u.productivity, 0) / productivityData.length
             : 0;
 
+    const totalActiveTime = productivityData.reduce((sum, u) => sum + u.total_active_seconds, 0);
+    const totalIdleTime = productivityData.reduce((sum, u) => sum + u.total_idle_seconds, 0);
+
     const handleExportSessions = () => {
         const exportData = activeSessions.map((s) => ({
             User: s.userName,
             Project: s.projectName,
-            'Start Time': formatDateTime(s.startTime),
-            'Active Time': formatDuration(s.activeTime),
-            'Idle Time': formatDuration(s.idleTime),
+            'Start Time': formatDateTime(s.start_time),
+            'Active Time': formatDuration(s.total_active_seconds),
+            'Idle Time': formatDuration(s.total_idle_seconds),
             Status: s.status,
         }));
         exportToCSV(exportData, 'active-sessions');
@@ -78,6 +74,7 @@ export const AdminDashboard = () => {
             title: 'User',
             dataIndex: 'userName',
             key: 'userName',
+            render: (text: string) => <Text strong>{text}</Text>
         },
         {
             title: 'Project',
@@ -86,73 +83,74 @@ export const AdminDashboard = () => {
         },
         {
             title: 'Start Time',
-            dataIndex: 'startTime',
-            key: 'startTime',
-            render: (time: string) => formatDateTime(time),
+            dataIndex: 'start_time',
+            key: 'start_time',
+            render: (time: string) => <Text type="secondary">{formatDateTime(time)}</Text>,
         },
         {
             title: 'Active Time',
-            dataIndex: 'activeTime',
-            key: 'activeTime',
+            dataIndex: 'total_active_seconds',
+            key: 'total_active_seconds',
             render: (seconds: number) => formatDuration(seconds),
-            sorter: (a: Session, b: Session) => a.activeTime - b.activeTime,
+            sorter: (a: WorkSession, b: WorkSession) => a.total_active_seconds - b.total_active_seconds,
         },
         {
             title: 'Idle Time',
-            dataIndex: 'idleTime',
-            key: 'idleTime',
-            render: (seconds: number) => formatDuration(seconds),
-            sorter: (a: Session, b: Session) => a.idleTime - b.idleTime,
+            dataIndex: 'total_idle_seconds',
+            key: 'total_idle_seconds',
+            render: (seconds: number) => <Text type="secondary">{formatDuration(seconds)}</Text>,
+            sorter: (a: WorkSession, b: WorkSession) => a.total_idle_seconds - b.total_idle_seconds,
         },
         {
             title: 'Status',
             dataIndex: 'status',
             key: 'status',
-            render: (status: 'active' | 'idle' | 'stopped') => <StatusBadge status={status} />,
-            filters: [
-                { text: 'Active', value: 'active' },
-                { text: 'Idle', value: 'idle' },
-                { text: 'Stopped', value: 'stopped' },
-            ],
-            onFilter: (value: unknown, record: Session) => record.status === value,
+            render: (status: 'active' | 'paused' | 'stopped') => <StatusBadge status={status} />,
         },
     ];
 
     return (
-        <div>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 }}>
-                <Title level={2} style={{ margin: 0 }}>
-                    Admin Dashboard
+        <Space direction="vertical" size={32} style={{ display: 'flex' }}>
+            <div>
+                <Title level={4} style={{ marginBottom: 4, fontWeight: 700 }}>
+                    Overview
                 </Title>
+                <Text type="secondary">Monitor real-time productivity and workforce metrics.</Text>
             </div>
 
-            <Row gutter={[16, 16]}>
+            <Row gutter={[24, 24]}>
                 <Col xs={24} sm={12} lg={6}>
                     <RealtimeCounter />
                 </Col>
                 <Col xs={24} sm={12} lg={6}>
-                    <Card>
-                        <Statistic title="Active Sessions" value={activeSessions.length} />
-                    </Card>
-                </Col>
-                <Col xs={24} sm={12} lg={6}>
-                    <Card>
-                        <Statistic title="Total Users" value={users.length} />
-                    </Card>
-                </Col>
-                <Col xs={24} sm={12} lg={6}>
-                    <Card>
+                    <Card bordered={false} style={{ boxShadow: '0 1px 2px 0 rgba(0, 0, 0, 0.05)' }}>
                         <Statistic
-                            title="Avg Productivity"
+                            title={<Space><DesktopOutlined /> <Text type="secondary">Active Sessions</Text></Space>}
+                            value={activeSessions.length}
+                        />
+                    </Card>
+                </Col>
+                <Col xs={24} sm={12} lg={6}>
+                    <Card bordered={false} style={{ boxShadow: '0 1px 2px 0 rgba(0, 0, 0, 0.05)' }}>
+                        <Statistic
+                            title={<Space><TeamOutlined /> <Text type="secondary">Total Users</Text></Space>}
+                            value={users.length}
+                        />
+                    </Card>
+                </Col>
+                <Col xs={24} sm={12} lg={6}>
+                    <Card bordered={false} style={{ boxShadow: '0 1px 2px 0 rgba(0, 0, 0, 0.05)' }}>
+                        <Statistic
+                            title={<Space><ArrowUpOutlined style={{ color: '#52c41a' }} /> <Text type="secondary">Productivity</Text></Space>}
                             value={avgProductivity.toFixed(1)}
                             suffix="%"
-                            valueStyle={{ color: avgProductivity >= 70 ? '#52c41a' : '#faad14' }}
+                            valueStyle={{ color: avgProductivity >= 70 ? '#52c41a' : '#faad14', fontWeight: 700 }}
                         />
                     </Card>
                 </Col>
             </Row>
 
-            <Row gutter={[16, 16]} style={{ marginTop: 24 }}>
+            <Row gutter={[24, 24]}>
                 <Col xs={24} lg={8}>
                     <OnlineUsersPanel maxDisplay={8} />
                 </Col>
@@ -161,9 +159,13 @@ export const AdminDashboard = () => {
                 </Col>
             </Row>
 
-            <Row gutter={[16, 16]} style={{ marginTop: 24 }}>
+            <Row gutter={[24, 24]}>
                 <Col xs={24} lg={12}>
-                    <Card title="Organization Active vs Idle Time">
+                    <Card
+                        title="Active vs Idle Time"
+                        bordered={false}
+                        style={{ boxShadow: '0 1px 2px 0 rgba(0, 0, 0, 0.05)' }}
+                    >
                         {productivityLoading ? (
                             <LoadingSkeleton />
                         ) : (
@@ -173,7 +175,11 @@ export const AdminDashboard = () => {
                 </Col>
 
                 <Col xs={24} lg={12}>
-                    <Card title="Daily Productivity Trend">
+                    <Card
+                        title="Daily Productivity Trend"
+                        bordered={false}
+                        style={{ boxShadow: '0 1px 2px 0 rgba(0, 0, 0, 0.05)' }}
+                    >
                         {dailyLoading ? (
                             <LoadingSkeleton />
                         ) : (
@@ -183,14 +189,22 @@ export const AdminDashboard = () => {
                 </Col>
             </Row>
 
-            <Row gutter={[16, 16]} style={{ marginTop: 24 }}>
-                <Col xs={24} lg={12}>
-                    <Card title="Time Distribution">
-                        <ProductivityPieChart activeTime={totalActiveTime} idleTime={totalIdleTime} />
+            <Row gutter={[24, 24]}>
+                <Col xs={24} lg={10}>
+                    <Card
+                        title="Time Distribution"
+                        bordered={false}
+                        style={{ boxShadow: '0 1px 2px 0 rgba(0, 0, 0, 0.05)' }}
+                    >
+                        <ProductivityPieChart active_seconds={totalActiveTime} idle_seconds={totalIdleTime} />
                     </Card>
                 </Col>
-                <Col xs={24} lg={12}>
-                    <Card title="User Performance Comparison">
+                <Col xs={24} lg={14}>
+                    <Card
+                        title="Top Performers"
+                        bordered={false}
+                        style={{ boxShadow: '0 1px 2px 0 rgba(0, 0, 0, 0.05)' }}
+                    >
                         {productivityLoading ? (
                             <LoadingSkeleton />
                         ) : (
@@ -198,20 +212,29 @@ export const AdminDashboard = () => {
                                 dataSource={productivityData}
                                 rowKey="userName"
                                 pagination={{ pageSize: 5 }}
-                                size="small"
+                                size="middle"
                                 columns={[
-                                    { title: 'User', dataIndex: 'userName', key: 'userName' },
+                                    {
+                                        title: 'User',
+                                        dataIndex: 'userName',
+                                        key: 'userName',
+                                        render: (text: string) => <Text strong>{text}</Text>
+                                    },
                                     {
                                         title: 'Productivity',
                                         dataIndex: 'productivity',
                                         key: 'productivity',
-                                        render: (v: number) => `${v.toFixed(1)}%`,
+                                        render: (v: number) => (
+                                            <Text style={{ color: v >= 70 ? '#52c41a' : '#faad14', fontWeight: 600 }}>
+                                                {v.toFixed(1)}%
+                                            </Text>
+                                        ),
                                         sorter: (a, b) => a.productivity - b.productivity,
                                     },
                                     {
                                         title: 'Active Time',
-                                        dataIndex: 'activeTime',
-                                        key: 'activeTime',
+                                        dataIndex: 'total_active_seconds',
+                                        key: 'total_active_seconds',
                                         render: (v: number) => formatDuration(v),
                                     },
                                 ]}
@@ -222,10 +245,16 @@ export const AdminDashboard = () => {
             </Row>
 
             <Card
-                title="Active Sessions"
-                style={{ marginTop: 24 }}
+                title="Active Tracker Sessions"
+                bordered={false}
+                style={{ boxShadow: '0 1px 2px 0 rgba(0, 0, 0, 0.05)' }}
                 extra={
-                    <Button icon={<DownloadOutlined />} onClick={handleExportSessions} disabled={activeSessions.length === 0}>
+                    <Button
+                        icon={<DownloadOutlined />}
+                        onClick={handleExportSessions}
+                        disabled={activeSessions.length === 0}
+                        type="default"
+                    >
                         Export CSV
                     </Button>
                 }
@@ -236,8 +265,9 @@ export const AdminDashboard = () => {
                     loading={sessionsLoading}
                     rowKey="id"
                     pagination={{ pageSize: 10 }}
+                    size="middle"
                 />
             </Card>
-        </div>
+        </Space>
     );
 };

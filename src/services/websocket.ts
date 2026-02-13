@@ -155,14 +155,16 @@ class WebSocketService {
         }
         if (handlers.onInactiveAlert) {
             this.on('INACTIVE_ALERT', (data) => {
-                handlers.onInactiveAlert?.(data as AlertPayload);
-                antdMessage.warning((data as AlertPayload).alert.message);
+                const payload = data as AlertPayload;
+                handlers.onInactiveAlert?.(payload);
+                antdMessage.warning(payload.message);
             });
         }
         if (handlers.onOvertimeAlert) {
             this.on('OVERTIME_ALERT', (data) => {
-                handlers.onOvertimeAlert?.(data as AlertPayload);
-                antdMessage.warning((data as AlertPayload).alert.message);
+                const payload = data as AlertPayload;
+                handlers.onOvertimeAlert?.(payload);
+                antdMessage.warning(payload.message);
             });
         }
         if (handlers.onReconnect) {

@@ -1,159 +1,116 @@
-import { Row, Col, Card, Typography, Table } from 'antd';
+import { Row, Col, Typography, Card, Segmented, Space } from 'antd';
+import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
+import { CalendarOutlined, LayoutOutlined } from '@ant-design/icons';
 import { SessionControl } from '@/features/sessions/SessionControl';
 import { ProductivityScore } from '@/components/ProductivityScore';
 import { ProductivityPieChart } from '@/components/charts/ProductivityPieChart';
-import { ProductivityLineChart } from '@/components/charts/ProductivityLineChart';
 import { AlertsPanel } from '@/components/AlertsPanel';
+import { AttendanceCalendar } from '@/components/AttendanceCalendar';
+import { MidnightSummaryCard } from '@/components/MidnightSummaryCard';
+import { WeeklySummaryCard } from '@/components/WeeklySummaryCard';
 import { useAuthStore } from '@/store/auth.store';
-import { formatDuration, formatDateTime } from '@/utils/format';
-import api from '@/services/api';
-import type { DailySummary, Session, ProductivityChartData } from '@/types';
+import { getDailySummary, getWeeklyAttendance } from '@/features/sessions/sessions.api';
+import type { DailySummary, WeeklyAttendance } from '@/types';
+import dayjs from 'dayjs';
 
-const { Title } = Typography;
+const { Title, Text } = Typography;
 
 export const EmployeeDashboard = () => {
     const user = useAuthStore((state) => state.user);
+    const [viewMode, setViewMode] = useState<'overview' | 'attendance'>('overview');
 
     // Fetch today's summary
     const { data: dailySummary } = useQuery<DailySummary>({
         queryKey: ['dailySummary', user?.id],
-        queryFn: async () => {
-            const response = await api.get('/reports/my-daily-summary');
-            return response.data;
-        },
+        queryFn: () => getDailySummary(dayjs().format('YYYY-MM-DD')),
         enabled: !!user,
-        refetchInterval: 30000, // Refetch every 30 seconds
+        refetchInterval: 30000,
     });
 
-    // Fetch weekly productivity trend
-    const { data: weeklyData = [] } = useQuery<ProductivityChartData[]>({
-        queryKey: ['productivity', 'weekly', user?.id],
-        queryFn: async () => {
-            const response = await api.get('/reports/my-weekly-trend');
-            return response.data;
-        },
+    // Fetch weekly attendance
+    const { data: weeklyAttendance } = useQuery<WeeklyAttendance>({
+        queryKey: ['attendance', 'weekly', user?.id],
+        queryFn: getWeeklyAttendance,
         enabled: !!user,
     });
 
-    // Fetch session history
-    const { data: sessionHistory = [], isLoading: historyLoading } = useQuery<Session[]>({
-        queryKey: ['sessions', 'history', user?.id],
-        queryFn: async () => {
-            const response = await api.get('/sessions/my-history?limit=10');
-            return response.data;
-        },
-        enabled: !!user,
-    });
-
-    const activeTime = dailySummary?.activeTime || 0;
-    const idleTime = dailySummary?.idleTime || 0;
+    const activeTime = dailySummary?.total_active_seconds || 0;
+    const idleTime = dailySummary?.total_idle_seconds || 0;
     const totalTime = activeTime + idleTime;
-    const productivity = dailySummary?.productivity || 0;
-
-    const columns = [
-        {
-            title: 'Project',
-            dataIndex: 'projectName',
-            key: 'projectName',
-        },
-        {
-            title: 'Start Time',
-            dataIndex: 'startTime',
-            key: 'startTime',
-            render: (time: string) => formatDateTime(time),
-        },
-        {
-            title: 'End Time',
-            dataIndex: 'endTime',
-            key: 'endTime',
-            render: (time?: string) => (time ? formatDateTime(time) : 'In Progress'),
-        },
-        {
-            title: 'Duration',
-            key: 'duration',
-            render: (record: Session) => formatDuration(record.activeTime + record.idleTime),
-        },
-        {
-            title: 'Active Time',
-            dataIndex: 'activeTime',
-            key: 'activeTime',
-            render: (seconds: number) => formatDuration(seconds),
-        },
-        {
-            title: 'Productivity',
-            key: 'productivity',
-            render: (record: Session) => {
-                const total = record.activeTime + record.idleTime;
-                const prod = total > 0 ? (record.activeTime / total) * 100 : 0;
-                return `${prod.toFixed(1)}%`;
-            },
-        },
-    ];
+    const productivity = totalTime > 0 ? (activeTime / totalTime) * 100 : 0;
 
     return (
-        <div>
-            <Title level={2} style={{ marginBottom: 24 }}>
-                Welcome back, {user?.name}!
-            </Title>
-
-            <Row gutter={[16, 16]}>
-                <Col xs={24} lg={12}>
-                    <SessionControl />
-                </Col>
-
-                <Col xs={24} lg={12}>
-                    <ProductivityScore
-                        score={productivity}
-                        activeTime={activeTime}
-                        idleTime={idleTime}
-                    />
-                </Col>
-            </Row>
-
-            <Row gutter={[16, 16]} style={{ marginTop: 24 }}>
-                <Col xs={24} lg={16}>
-                    <Card title="Your Alerts">
-                        <AlertsPanel maxDisplay={5} showActions={false} />
-                    </Card>
-                </Col>
-                <Col xs={24} lg={8}>
-                    <Card title="Today's Time Distribution">
-                        {totalTime > 0 ? (
-                            <ProductivityPieChart activeTime={activeTime} idleTime={idleTime} height={250} />
-                        ) : (
-                            <div style={{ textAlign: 'center', padding: '40px 0', color: '#8c8c8c' }}>
-                                No activity today
-                            </div>
-                        )}
-                    </Card>
-                </Col>
-            </Row>
-
-            <Row gutter={[16, 16]} style={{ marginTop: 24 }}>
-                <Col xs={24}>
-                    <Card title="Weekly Productivity Trend">
-                        {weeklyData.length > 0 ? (
-                            <ProductivityLineChart data={weeklyData} />
-                        ) : (
-                            <div style={{ textAlign: 'center', padding: '40px 0', color: '#8c8c8c' }}>
-                                No data available
-                            </div>
-                        )}
-                    </Card>
-                </Col>
-            </Row>
-
-            <Card title="Recent Sessions" style={{ marginTop: 24 }}>
-                <Table
-                    columns={columns}
-                    dataSource={sessionHistory}
-                    loading={historyLoading}
-                    rowKey="id"
-                    pagination={{ pageSize: 10 }}
-                    locale={{ emptyText: 'No sessions yet' }}
+        <div style={{ maxWidth: 1400, margin: '0 auto' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: 32 }}>
+                <div>
+                    <Title level={2} style={{ margin: 0, fontWeight: 700 }}>
+                        Welcome back, {user?.first_name}!
+                    </Title>
+                    <Text type="secondary">Here's what's happening with your productivity today.</Text>
+                </div>
+                <Segmented
+                    options={[
+                        { label: 'Overview', value: 'overview', icon: <LayoutOutlined /> },
+                        { label: 'Attendance', value: 'attendance', icon: <CalendarOutlined /> },
+                    ]}
+                    value={viewMode}
+                    onChange={(val) => setViewMode(val as any)}
+                    size="large"
                 />
-            </Card>
+            </div>
+
+            {viewMode === 'overview' ? (
+                <Row gutter={[24, 24]}>
+                    <Col xs={24} lg={8}>
+                        <Space direction="vertical" size={24} style={{ width: '100%' }}>
+                            <SessionControl />
+                            <ProductivityScore
+                                score={productivity}
+                                active_seconds={activeTime}
+                                idle_seconds={idleTime}
+                            />
+                            <WeeklySummaryCard data={weeklyAttendance} />
+                        </Space>
+                    </Col>
+
+                    <Col xs={24} lg={10}>
+                        <Space direction="vertical" size={24} style={{ width: '100%' }}>
+                            <Card title="Today's Time Distribution" bordered={false} style={{ borderRadius: 12 }}>
+                                {totalTime > 0 ? (
+                                    <ProductivityPieChart active_seconds={activeTime} idle_seconds={idleTime} height={300} />
+                                ) : (
+                                    <div style={{ textAlign: 'center', padding: '60px 0', color: '#8c8c8c' }}>
+                                        <div style={{ fontSize: 40, marginBottom: 16 }}>☕</div>
+                                        <Text type="secondary">No active sessions yet. Start a project to see distribution.</Text>
+                                    </div>
+                                )}
+                            </Card>
+                            <Card title="Recent Alerts" bordered={false} style={{ borderRadius: 12 }}>
+                                <AlertsPanel maxDisplay={3} showActions={false} />
+                            </Card>
+                        </Space>
+                    </Col>
+
+                    <Col xs={24} lg={6}>
+                        <MidnightSummaryCard summary={dailySummary ? { ...dailySummary, generated_at: new Date().toISOString(), organization_id: user?.organization_id || '' } : null} />
+                    </Col>
+                </Row>
+            ) : (
+                <Row gutter={[24, 24]}>
+                    <Col xs={24} lg={16}>
+                        <AttendanceCalendar days={weeklyAttendance?.days || []} />
+                    </Col>
+                    <Col xs={24} lg={8}>
+                        <Space direction="vertical" size={24} style={{ width: '100%' }}>
+                            <WeeklySummaryCard data={weeklyAttendance} />
+                            <Card title="Attendance Insights" bordered={false} style={{ borderRadius: 12 }}>
+                                <Text type="secondary">Your attendance is calculated based on session logs and system activity.</Text>
+                            </Card>
+                        </Space>
+                    </Col>
+                </Row>
+            )}
         </div>
     );
 };

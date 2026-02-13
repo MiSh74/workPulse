@@ -1,6 +1,7 @@
 import { createBrowserRouter, Navigate } from 'react-router-dom';
 import { lazy, Suspense } from 'react';
 import { LoginPage } from '@/features/auth/LoginPage';
+import { RegisterPage } from '@/features/auth/RegisterPage';
 import { AppLayout } from './layout/AppLayout';
 import { ProtectedRoute } from './ProtectedRoute';
 import { DashboardPage } from './DashboardPage';
@@ -19,11 +20,18 @@ const UsersPage = lazy(() =>
 const AlertsPage = lazy(() =>
     import('@/features/alerts/AlertsPage').then((m) => ({ default: m.AlertsPage }))
 );
+const TeamPage = lazy(() =>
+    import('@/features/teams/TeamPage').then((m) => ({ default: m.TeamPage }))
+);
 
 export const router = createBrowserRouter([
     {
         path: '/login',
         element: <LoginPage />,
+    },
+    {
+        path: '/register',
+        element: <RegisterPage />,
     },
     {
         path: '/',
@@ -70,6 +78,14 @@ export const router = createBrowserRouter([
                 element: (
                     <Suspense fallback={<PageLoader />}>
                         <AlertsPage />
+                    </Suspense>
+                ),
+            },
+            {
+                path: 'team',
+                element: (
+                    <Suspense fallback={<PageLoader />}>
+                        <TeamPage />
                     </Suspense>
                 ),
             },

@@ -17,8 +17,8 @@ export const LoginPage = () => {
     const loginMutation = useMutation({
         mutationFn: loginUser,
         onSuccess: (data) => {
-            login(data.user, data.token);
-            websocketService.connect(data.token);
+            login(data.user, data.access_token);
+            websocketService.connect(data.access_token);
             message.success('Login successful!');
 
             // Redirect based on role
@@ -34,6 +34,7 @@ export const LoginPage = () => {
     });
 
     const handleSubmit = (values: LoginRequest) => {
+        // Ant Design onFinish handles preventDefault, but we'll be explicit if needed
         loginMutation.mutate(values);
     };
 
@@ -66,6 +67,7 @@ export const LoginPage = () => {
                 <Form form={form} onFinish={handleSubmit} layout="vertical" size="large">
                     <Form.Item
                         name="email"
+                        label="Email"
                         rules={[
                             { required: true, message: 'Please input your email!' },
                             { type: 'email', message: 'Please enter a valid email!' },
@@ -76,6 +78,7 @@ export const LoginPage = () => {
 
                     <Form.Item
                         name="password"
+                        label="Password"
                         rules={[{ required: true, message: 'Please input your password!' }]}
                     >
                         <Input.Password prefix={<LockOutlined />} placeholder="Password" />
@@ -87,18 +90,14 @@ export const LoginPage = () => {
                             htmlType="submit"
                             block
                             loading={loginMutation.isPending}
-                            style={{ height: 45 }}
+                            style={{ height: 45, marginTop: 8 }}
                         >
-                            Sign In
+                            Log in
                         </Button>
                     </Form.Item>
                 </Form>
 
-                <div style={{ textAlign: 'center', marginTop: 16 }}>
-                    <Text type="secondary" style={{ fontSize: 12 }}>
-                        Demo Credentials: admin@example.com / password
-                    </Text>
-                </div>
+
             </Card>
         </div>
     );

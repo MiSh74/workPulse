@@ -28,7 +28,7 @@ export const ProductivityLineChart = memo(({ data, height = 300 }: ProductivityL
                 <Line
                     yAxisId="right"
                     type="monotone"
-                    dataKey="activeTime"
+                    dataKey="active_hours"
                     stroke="#52c41a"
                     name="Active Time (hrs)"
                     strokeWidth={2}

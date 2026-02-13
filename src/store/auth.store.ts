@@ -3,34 +3,34 @@ import type { User } from '@/types';
 
 interface AuthState {
     user: User | null;
-    token: string | null;
+    accessToken: string | null;
     isAuthenticated: boolean;
-    login: (user: User, token: string) => void;
+    login: (user: User, accessToken: string) => void;
     logout: () => void;
     setUser: (user: User) => void;
 }
 
 export const useAuthStore = create<AuthState>((set) => {
     // Initialize from localStorage
-    const storedToken = localStorage.getItem('token');
+    const storedToken = localStorage.getItem('access_token');
     const storedUser = localStorage.getItem('user');
     const initialUser = storedUser ? JSON.parse(storedUser) : null;
 
     return {
         user: initialUser,
-        token: storedToken,
+        accessToken: storedToken,
         isAuthenticated: !!storedToken,
 
-        login: (user, token) => {
-            localStorage.setItem('token', token);
+        login: (user, accessToken) => {
+            localStorage.setItem('access_token', accessToken);
             localStorage.setItem('user', JSON.stringify(user));
-            set({ user, token, isAuthenticated: true });
+            set({ user, accessToken, isAuthenticated: true });
         },
 
         logout: () => {
-            localStorage.removeItem('token');
+            localStorage.removeItem('access_token');
             localStorage.removeItem('user');
-            set({ user: null, token: null, isAuthenticated: false });
+            set({ user: null, accessToken: null, isAuthenticated: false });
         },
 
         setUser: (user) => {

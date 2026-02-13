@@ -19,22 +19,26 @@ export const OnlineUsersPanel = ({ maxDisplay = 10, filterByRole }: OnlineUsersP
     // Filter users based on role if needed
     let displayUsers = onlineUsers;
     if (filterByRole === 'manager') {
-        // TODO: In real app, filter by team membership
-        // For now, show all except admins
+        // Show all except admins for managers (simplification)
         displayUsers = onlineUsers.filter((u) => u.role !== 'admin');
     }
 
     // Limit displayed users
     const limitedUsers = displayUsers.slice(0, maxDisplay);
 
-    const getStatusColor = (status: 'active' | 'idle' | 'offline') => {
+    const getStatusColor = (status: OnlineUser['status']) => {
         switch (status) {
             case 'active':
                 return '#52c41a'; // green
+            case 'paused':
             case 'idle':
                 return '#faad14'; // yellow
             case 'offline':
+            case 'inactive':
+            case 'suspended':
                 return '#d9d9d9'; // gray
+            default:
+                return '#d9d9d9';
         }
     };
 
@@ -61,7 +65,7 @@ export const OnlineUsersPanel = ({ maxDisplay = 10, filterByRole }: OnlineUsersP
                                 }
                                 title={
                                     <Space>
-                                        <Text strong>{onlineUser.name}</Text>
+                                        <Text strong>{onlineUser.first_name} {onlineUser.last_name}</Text>
                                         {onlineUser.id === user?.id && (
                                             <Text type="secondary" style={{ fontSize: 12 }}>
                                                 (You)
@@ -75,7 +79,7 @@ export const OnlineUsersPanel = ({ maxDisplay = 10, filterByRole }: OnlineUsersP
                                             {onlineUser.role.charAt(0).toUpperCase() + onlineUser.role.slice(1)}
                                         </Text>
                                         <Text type="secondary" style={{ fontSize: 11 }}>
-                                            {formatLastSeen(onlineUser.lastSeen)}
+                                            {onlineUser.last_seen ? formatLastSeen(onlineUser.last_seen) : 'Never'}
                                         </Text>
                                     </Space>
                                 }

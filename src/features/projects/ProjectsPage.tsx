@@ -2,10 +2,10 @@ import { Card, Table, Button, Form, Input, Modal, message, Typography, Select, T
 import { PlusOutlined, TeamOutlined, UserOutlined } from '@ant-design/icons';
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { formatDate } from '@/utils/format';
+import { formatDateTime } from '@/utils/format';
 import { getProjects, createProject, deleteProject, assignManagerToProject, assignTeamMembersToProject } from './projects.api';
 import { mockUsers } from '@/mocks/data';
-import { useAuth } from '@/hooks/useAuth';
+import { useAuthStore } from '@/store/auth.store';
 import type { Project } from '@/types';
 
 const { Title } = Typography;
@@ -19,29 +19,22 @@ export const ProjectsPage = () => {
     const [managerForm] = Form.useForm();
     const [teamForm] = Form.useForm();
     const queryClient = useQueryClient();
-    const { user } = useAuth();
+    const user = useAuthStore((state) => state.user);
 
     const { data: projects = [], isLoading } = useQuery<Project[]>({
         queryKey: ['projects', user?.id, user?.role],
-        queryFn: () => getProjects(user?.id, user?.role),
+        queryFn: getProjects,
+        enabled: !!user,
     });
 
     const createMutation = useMutation({
-        mutationFn: (values: { name: string; description: string; managerId?: string }) => {
+        mutationFn: (values: { name: string; description: string; manager_id?: string }) => {
             if (!user) throw new Error('User not authenticated');
-            return createProject(
-                {
-                    name: values.name,
-                    description: values.description,
-                    createdBy: user.id,
-                    createdByName: user.name,
-                    managerId: values.managerId,
-                    managerName: values.managerId ? mockUsers.find(u => u.id === values.managerId)?.name : undefined,
-                },
-                user.id,
-                user.name,
-                user.role as 'admin' | 'manager'
-            );
+            return createProject({
+                name: values.name,
+                description: values.description,
+                // created_by and other fields handled by API/Mock
+            });
         },
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ['projects'] });
@@ -55,8 +48,8 @@ export const ProjectsPage = () => {
     });
 
     const assignManagerMutation = useMutation({
-        mutationFn: ({ projectId, managerId }: { projectId: string; managerId: string }) =>
-            assignManagerToProject(projectId, managerId),
+        mutationFn: ({ project_id, manager_id }: { project_id: string; manager_id: string }) =>
+            assignManagerToProject(project_id, manager_id),
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ['projects'] });
             message.success('Manager assigned successfully');
@@ -69,8 +62,8 @@ export const ProjectsPage = () => {
     });
 
     const assignTeamMutation = useMutation({
-        mutationFn: ({ projectId, memberIds }: { projectId: string; memberIds: string[] }) =>
-            assignTeamMembersToProject(projectId, memberIds),
+        mutationFn: ({ project_id, member_ids }: { project_id: string; member_ids: string[] }) =>
+            assignTeamMembersToProject(project_id, member_ids),
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ['projects'] });
             message.success('Team members assigned successfully');
@@ -98,7 +91,7 @@ export const ProjectsPage = () => {
 
     // Get employees for team assignment (filter by manager if user is manager)
     const employees = user?.role === 'manager'
-        ? mockUsers.filter(u => u.role === 'employee' && u.managerId === user.id)
+        ? mockUsers.filter(u => u.role === 'employee' && u.manager_id === user.id)
         : mockUsers.filter(u => u.role === 'employee');
 
     const baseColumns = [
@@ -120,68 +113,50 @@ export const ProjectsPage = () => {
             title: 'Type',
             key: 'type',
             render: (record: Project) => (
-                record.isSystemProject ? (
-                    <Tag color="purple">System</Tag>
-                ) : (
-                    <Tag color="green">{record.projectType || 'Regular'}</Tag>
-                )
+                <Tag color={record.project_type === 'system' ? 'purple' : 'green'}>
+                    {record.project_type.toUpperCase()}
+                </Tag>
             ),
         },
         {
             title: 'Created By',
-            dataIndex: 'createdByName',
-            key: 'createdByName',
+            dataIndex: 'created_by',
+            key: 'created_by',
         },
         {
-            title: 'Manager',
-            key: 'manager',
+            title: 'Actions',
+            key: 'actions',
             render: (record: Project) => (
-                record.isSystemProject ? (
-                    <span style={{ color: '#999' }}>N/A</span>
-                ) : (
-                    <Space>
-                        {record.managerName || 'Not assigned'}
+                <Space>
+                    {record.project_type !== 'system' && (
                         <Button
                             size="small"
                             icon={<UserOutlined />}
                             onClick={() => {
                                 setSelectedProject(record);
-                                managerForm.setFieldsValue({ managerId: record.managerId });
+                                managerForm.setFieldsValue({ manager_id: (record as any).manager_id });
                                 setIsManagerModalOpen(true);
                             }}
                         >
-                            Assign
+                            Assign Manager
                         </Button>
-                    </Space>
-                )
-            ),
-        },
-        {
-            title: 'Team Members',
-            key: 'team',
-            render: (record: Project) => (
-                record.isSystemProject ? (
-                    <Tag color="blue">All Employees</Tag>
-                ) : (
-                    <Space direction="vertical" size="small">
-                        <div>
-                            {record.teamMemberNames?.length ? (
-                                record.teamMemberNames.map((name, idx) => (
-                                    <Tag key={idx} color="blue">{name}</Tag>
-                                ))
-                            ) : (
-                                <span style={{ color: '#999' }}>No members</span>
-                            )}
-                        </div>
-                    </Space>
-                )
+                    )}
+                    <Button
+                        size="small"
+                        danger
+                        onClick={() => deleteMutation.mutate(record.id)}
+                        loading={deleteMutation.isPending}
+                    >
+                        Delete
+                    </Button>
+                </Space>
             ),
         },
         {
             title: 'Created',
-            dataIndex: 'createdAt',
-            key: 'createdAt',
-            render: (date: string) => formatDate(date),
+            dataIndex: 'created_at',
+            key: 'created_at',
+            render: (date: string) => formatDateTime(date),
         },
     ];
 
@@ -191,65 +166,47 @@ export const ProjectsPage = () => {
             title: 'Type',
             key: 'type',
             render: (record: Project) => (
-                record.isSystemProject ? (
-                    <Tag color="purple">System</Tag>
-                ) : (
-                    <Tag color="green">{record.projectType || 'Regular'}</Tag>
-                )
+                <Tag color={record.project_type === 'system' ? 'purple' : 'green'}>
+                    {record.project_type.toUpperCase()}
+                </Tag>
             ),
         },
         {
-            title: 'Team Members',
+            title: 'Team',
             key: 'team',
             render: (record: Project) => (
-                record.isSystemProject ? (
+                record.project_type === 'system' ? (
                     <Tag color="blue">All Employees</Tag>
                 ) : (
-                    <Space>
-                        <div>
-                            {record.teamMemberNames?.length ? (
-                                record.teamMemberNames.map((name, idx) => (
-                                    <Tag key={idx} color="blue">{name}</Tag>
-                                ))
-                            ) : (
-                                <span style={{ color: '#999' }}>No members</span>
-                            )}
-                        </div>
-                        <Button
-                            size="small"
-                            icon={<TeamOutlined />}
-                            onClick={() => {
-                                setSelectedProject(record);
-                                teamForm.setFieldsValue({ memberIds: record.teamMembers || [] });
-                                setIsTeamModalOpen(true);
-                            }}
-                        >
-                            Manage
-                        </Button>
-                    </Space>
+                    <Button
+                        size="small"
+                        icon={<TeamOutlined />}
+                        onClick={() => {
+                            setSelectedProject(record);
+                            // We don't have team_members array in Project interface yet, mocking for now
+                            setIsTeamModalOpen(true);
+                        }}
+                    >
+                        Manage Team
+                    </Button>
                 )
             ),
         },
         {
             title: 'Created',
-            dataIndex: 'createdAt',
-            key: 'createdAt',
-            render: (date: string) => formatDate(date),
+            dataIndex: 'created_at',
+            key: 'created_at',
+            render: (date: string) => formatDateTime(date),
         },
     ];
 
     const employeeColumns = [
         ...baseColumns,
         {
-            title: 'Manager',
-            dataIndex: 'managerName',
-            key: 'managerName',
-        },
-        {
             title: 'Created',
-            dataIndex: 'createdAt',
-            key: 'createdAt',
-            render: (date: string) => formatDate(date),
+            dataIndex: 'created_at',
+            key: 'created_at',
+            render: (date: string) => formatDateTime(date),
         },
     ];
 
@@ -314,21 +271,6 @@ export const ProjectsPage = () => {
                     >
                         <Input.TextArea placeholder="Enter project description" rows={3} />
                     </Form.Item>
-
-                    {user?.role === 'admin' && (
-                        <Form.Item
-                            name="managerId"
-                            label="Assign Manager"
-                        >
-                            <Select placeholder="Select a manager" allowClear>
-                                {managers.map(manager => (
-                                    <Select.Option key={manager.id} value={manager.id}>
-                                        {manager.name}
-                                    </Select.Option>
-                                ))}
-                            </Select>
-                        </Form.Item>
-                    )}
                 </Form>
             </Modal>
 
@@ -348,21 +290,21 @@ export const ProjectsPage = () => {
                     onFinish={(values) => {
                         if (selectedProject) {
                             assignManagerMutation.mutate({
-                                projectId: selectedProject.id,
-                                managerId: values.managerId,
+                                project_id: selectedProject.id,
+                                manager_id: values.manager_id,
                             });
                         }
                     }}
                 >
                     <Form.Item
-                        name="managerId"
+                        name="manager_id"
                         label="Manager"
                         rules={[{ required: true, message: 'Please select a manager' }]}
                     >
                         <Select placeholder="Select a manager">
                             {managers.map(manager => (
                                 <Select.Option key={manager.id} value={manager.id}>
-                                    {manager.name}
+                                    {manager.first_name} {manager.last_name}
                                 </Select.Option>
                             ))}
                         </Select>
@@ -386,14 +328,14 @@ export const ProjectsPage = () => {
                     onFinish={(values) => {
                         if (selectedProject) {
                             assignTeamMutation.mutate({
-                                projectId: selectedProject.id,
-                                memberIds: values.memberIds || [],
+                                project_id: selectedProject.id,
+                                member_ids: values.member_ids || [],
                             });
                         }
                     }}
                 >
                     <Form.Item
-                        name="memberIds"
+                        name="member_ids"
                         label="Team Members"
                     >
                         <Select
@@ -403,7 +345,7 @@ export const ProjectsPage = () => {
                         >
                             {employees.map(employee => (
                                 <Select.Option key={employee.id} value={employee.id}>
-                                    {employee.name}
+                                    {employee.first_name} {employee.last_name}
                                 </Select.Option>
                             ))}
                         </Select>

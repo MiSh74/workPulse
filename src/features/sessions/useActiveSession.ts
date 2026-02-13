@@ -1,10 +1,11 @@
 import { useQuery } from '@tanstack/react-query';
-import { getActiveSession } from './session.api';
+import { getMyActiveSession } from './sessions.api';
+import type { WorkSession } from '@/types';
 
 export const useActiveSession = () => {
-    return useQuery({
+    return useQuery<WorkSession | null>({
         queryKey: ['activeSession'],
-        queryFn: getActiveSession,
+        queryFn: getMyActiveSession,
         refetchInterval: 30000, // Refetch every 30 seconds
         staleTime: 20000,
     });

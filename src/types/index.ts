@@ -1,112 +1,119 @@
-// User types
+// Core types synchronized with swagger.yml
+
 export interface User {
     id: string;
     email: string;
-    name: string;
+    first_name: string;
+    last_name: string;
+    employee_id: string;
     role: 'admin' | 'manager' | 'employee';
-    managerId?: string; // For employees - which manager they report to
-    assignedProjects?: string[]; // Project IDs assigned to this user
-    onboardingStatus?: 'training' | 'active'; // Employee onboarding status
-    createdAt: string;
-    isActive?: boolean;
-    lastSeen?: string;
+    status: 'active' | 'inactive' | 'suspended';
+    organization_id: string;
+    manager_id: string | null;
+    last_seen: string | null;
+    created_at: string;
 }
 
-// Auth types
 export interface LoginRequest {
     email: string;
     password: string;
 }
 
+export interface RegisterRequest {
+    email: string;
+    password: string;
+    first_name: string;
+    last_name: string;
+    employee_id?: string;
+    organization_name?: string;
+    organization_id?: string;
+    role?: 'admin' | 'manager' | 'employee';
+}
+
+export interface ChangePasswordRequest {
+    current_password: string;
+    new_password: string;
+}
+
+export interface ResetPasswordRequest {
+    new_password: string;
+    confirm_password: string;
+}
+
+export interface CreateUserRequest {
+    email: string;
+    first_name: string;
+    last_name: string;
+    employee_id: string;
+    role: 'admin' | 'manager' | 'employee';
+    manager_id?: string;
+}
+
 export interface AuthResponse {
-    token: string;
     user: User;
+    access_token: string;
 }
 
-// Session types
-export interface Session {
-    id: string;
-    userId: string;
-    userName: string;
-    projectId: string; // REQUIRED - no nullable sessions
-    projectName: string;
-    startTime: string;
-    endTime?: string;
-    activeTime: number; // seconds
-    idleTime: number; // seconds
-    status: 'active' | 'idle' | 'stopped';
-    lastActivity?: string;
-    isTrainingSession?: boolean; // Track training vs regular work
-}
-
-export interface StartSessionRequest {
-    projectId: string;
-}
-
-export interface ActivityUpdate {
-    timestamp: string;
-}
-
-// Project types
 export interface Project {
     id: string;
     name: string;
-    description?: string;
-    createdAt: string;
-    createdBy: string; // userId of creator (admin or manager)
-    createdByName: string; // name of creator
-    managerId?: string; // assigned manager (if created by admin)
-    managerName?: string; // manager's name
-    teamMembers?: string[]; // array of employee user IDs assigned by manager
-    teamMemberNames?: string[]; // array of employee names for display
-    isSystemProject?: boolean; // System-managed project (e.g., Training)
-    isDeletable?: boolean; // Can this project be deleted?
-    isEditable?: boolean; // Can this project be edited?
-    projectType?: 'regular' | 'training' | 'internal'; // Project category
-    isArchived?: boolean;
+    description: string | null;
+    organization_id: string;
+    created_by: string;
+    project_type: 'normal' | 'system';
+    is_active: boolean;
+    archived_at: string | null;
+    created_at: string;
 }
 
-// Productivity types
-export interface ProductivityScore {
-    userId: string;
-    userName: string;
-    score: number; // 0-100
-    activeHours: number;
-    idleHours: number;
-    totalHours: number;
+export interface WorkSession {
+    id: string;
+    user_id: string;
+    organization_id: string;
+    project_id: string;
+    start_time: string;
+    end_time: string | null;
+    total_active_seconds: number;
+    total_idle_seconds: number;
+    status: 'active' | 'paused' | 'stopped';
+    last_activity_at: string | null;
+    // UI Helpers
+    projectName?: string;
+    userName?: string;
 }
 
-export interface DailySummary {
-    date: string;
-    totalSessions: number;
-    activeTime: number;
-    idleTime: number;
-    productivity: number;
+// Alias for transition
+export type Session = WorkSession;
+
+export interface StartSessionRequest {
+    project_id: string;
 }
 
-// Alert types
+export interface ActivityLogRequest {
+    type: 'active' | 'idle';
+    appName: string;
+    windowTitle: string;
+    url?: string;
+}
+
 export interface Alert {
     id: string;
-    type: 'inactive' | 'overtime' | 'system';
-    userId?: string;
-    userName?: string;
+    organization_id: string;
+    user_id: string;
+    session_id: string | null;
+    type: 'idle' | 'overtime';
     message: string;
-    timestamp: string;
-    severity: 'info' | 'warning' | 'error';
-    resolved?: boolean;
-    resolvedAt?: string;
-    resolvedBy?: string;
+    created_at: string;
+    resolved_at: string | null;
+    resolved_by: string | null;
+    // UI Helpers
+    userName?: string;
 }
 
 // Presence types
-export interface OnlineUser {
-    id: string;
-    name: string;
-    email: string;
-    role: 'admin' | 'manager' | 'employee';
-    status: 'active' | 'idle' | 'offline';
-    lastSeen: string;
-}
+export type OnlineUser = Omit<User, 'status'> & {
+    status: 'active' | 'paused' | 'idle' | 'offline' | 'inactive' | 'suspended';
+};
 
 // WebSocket event types
 export type SocketEvent =
@@ -114,85 +121,108 @@ export type SocketEvent =
     | 'USER_OFFLINE'
     | 'SESSION_UPDATE'
     | 'INACTIVE_ALERT'
-    | 'OVERTIME_ALERT';
+    | 'OVERTIME_ALERT'
+    | 'MIDNIGHT_SUMMARY';
 
-export interface SocketEventData {
-    event: SocketEvent;
-    payload: unknown;
-}
-
-// WebSocket event payloads
 export interface UserOnlinePayload {
-    userId: string;
-    userName: string;
-    userRole: 'admin' | 'manager' | 'employee';
+    user_id: string;
+    first_name: string;
+    last_name: string;
+    role: string;
 }
 
 export interface UserOfflinePayload {
-    userId: string;
+    user_id: string;
 }
 
 export interface SessionUpdatePayload {
-    session: Session;
+    session: WorkSession;
 }
 
 export interface AlertPayload {
-    alert: Alert;
+    alert_id: string;
+    user_id: string;
+    type: 'idle' | 'overtime';
+    message: string;
 }
 
-// API response types
-export interface ApiResponse<T> {
-    success: boolean;
-    data: T;
-    message?: string;
+export interface SocketEventData {
+    event: SocketEvent;
+    payload: any;
 }
 
-export interface PaginatedResponse<T> {
-    data: T[];
-    total: number;
-    page: number;
-    pageSize: number;
-}
-
-// Report types
-export interface Report {
-    id: string;
-    userId: string;
+export interface UserComparisonData {
     userName: string;
-    startDate: string;
-    endDate: string;
-    totalSessions: number;
-    activeTime: number;
-    idleTime: number;
+    total_active_seconds: number;
+    total_idle_seconds: number;
+    total_seconds: number;
     productivity: number;
-}
-
-export interface ReportFilters {
-    startDate?: string;
-    endDate?: string;
-    userId?: string;
-    projectId?: string;
-}
-
-// Chart types
-export interface ChartDataPoint {
-    label: string;
-    value: number;
-    active?: number;
-    idle?: number;
 }
 
 export interface ProductivityChartData {
     date: string;
     productivity: number;
-    activeTime: number;
-    idleTime: number;
+    active_hours: number;
+    idle_hours: number;
 }
 
-export interface UserComparisonData {
-    userName: string;
+export interface Report {
+    id: string;
+    user_id: string;
+    userName?: string;
+    organization_id: string;
+    start_date: string;
+    end_date: string;
+    total_sessions: number;
+    total_active_seconds: number;
+    total_idle_seconds: number;
     productivity: number;
-    activeTime: number;
-    idleTime: number;
-    totalTime: number;
+}
+
+export interface ReportFilters {
+    user_id?: string;
+    project_id?: string;
+    start_date?: string;
+    end_date?: string;
+    limit?: number;
+    offset?: number;
+}
+
+// Reports & Charts
+export interface DailySummary {
+    date: string;
+    total_active_seconds: number;
+    total_idle_seconds: number;
+    projects: {
+        project_id: string;
+        project_name: string;
+        seconds: number;
+    }[];
+}
+
+export interface MidnightSummary extends DailySummary {
+    generated_at: string;
+    organization_id: string;
+}
+
+export interface AttendanceDay {
+    date: string;
+    status: 'present' | 'absent' | 'half-day' | 'holiday' | 'leave';
+    total_seconds: number;
+    sessions_count: number;
+}
+
+export interface WeeklyAttendance {
+    start_date: string;
+    end_date: string;
+    days: AttendanceDay[];
+    total_hours: number;
+    absent_count: number;
+}
+
+export interface ChartDataPoint {
+    label: string;
+    value: number;
+    active?: number;
+    idle?: number;
 }

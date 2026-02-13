@@ -5,7 +5,8 @@ import { useQuery } from '@tanstack/react-query';
 import { useAuthStore } from '@/store/auth.store';
 import { formatDateTime, formatDuration, formatProductivity, exportToCSV } from '@/utils/format';
 import { getReports } from './reports.api';
-import api from '@/services/api';
+import { getUsers } from '@/features/users/users.api';
+import { getProjects } from '@/features/projects/projects.api';
 import type { Report, ReportFilters, User, Project } from '@/types';
 import type { Dayjs } from 'dayjs';
 
@@ -21,24 +22,17 @@ export const ReportsPage = () => {
     const isManager = user?.role === 'manager';
     const canFilterByUser = isAdmin || isManager;
 
-    // Fetch users for filter (admin/manager only)
+    // Fetch users for filter
     const { data: users = [] } = useQuery<User[]>({
-        queryKey: ['users'],
-        queryFn: async () => {
-            const endpoint = isManager ? '/users/team' : '/users';
-            const response = await api.get(endpoint);
-            return response.data;
-        },
+        queryKey: ['users', user?.id],
+        queryFn: () => getUsers(isManager ? { manager_id: user?.id } : undefined),
         enabled: canFilterByUser,
     });
 
     // Fetch projects for filter
     const { data: projects = [] } = useQuery<Project[]>({
         queryKey: ['projects'],
-        queryFn: async () => {
-            const response = await api.get('/projects');
-            return response.data;
-        },
+        queryFn: getProjects,
     });
 
     // Fetch reports
@@ -48,11 +42,11 @@ export const ReportsPage = () => {
     });
 
     // Calculate summary metrics
-    const totalSessions = reports.reduce((sum, r) => sum + r.totalSessions, 0);
-    const totalActiveTime = reports.reduce((sum, r) => sum + r.activeTime, 0);
-    const totalIdleTime = reports.reduce((sum, r) => sum + r.idleTime, 0);
+    const totalSessions = reports.reduce((sum, r) => sum + (r.total_sessions || 0), 0);
+    const totalActiveTime = reports.reduce((sum, r) => sum + (r.total_active_seconds || 0), 0);
+    const totalIdleTime = reports.reduce((sum, r) => sum + (r.total_idle_seconds || 0), 0);
     const avgProductivity = reports.length > 0
-        ? reports.reduce((sum, r) => sum + r.productivity, 0) / reports.length
+        ? reports.reduce((sum, r) => sum + (r.productivity || 0), 0) / reports.length
         : 0;
 
     const handleDateChange = (dates: [Dayjs | null, Dayjs | null] | null) => {
@@ -60,30 +54,30 @@ export const ReportsPage = () => {
             setDateRange(dates);
             setFilters({
                 ...filters,
-                startDate: dates[0]?.toISOString(),
-                endDate: dates[1]?.toISOString(),
+                start_date: dates[0]?.toISOString(),
+                end_date: dates[1]?.toISOString(),
             });
         } else {
             setDateRange([null, null]);
-            const { startDate, endDate, ...rest } = filters;
+            const { start_date, end_date, ...rest } = filters;
             setFilters(rest);
         }
     };
 
-    const handleUserChange = (userId?: string) => {
-        if (userId) {
-            setFilters({ ...filters, userId });
+    const handleUserChange = (user_id?: string) => {
+        if (user_id) {
+            setFilters({ ...filters, user_id });
         } else {
-            const { userId, ...rest } = filters;
+            const { user_id, ...rest } = filters;
             setFilters(rest);
         }
     };
 
-    const handleProjectChange = (projectId?: string) => {
-        if (projectId) {
-            setFilters({ ...filters, projectId });
+    const handleProjectChange = (project_id?: string) => {
+        if (project_id) {
+            setFilters({ ...filters, project_id });
         } else {
-            const { projectId, ...rest } = filters;
+            const { project_id, ...rest } = filters;
             setFilters(rest);
         }
     };
@@ -91,12 +85,12 @@ export const ReportsPage = () => {
     const handleExport = () => {
         const exportData = reports.map((r) => ({
             User: r.userName,
-            'Start Date': formatDateTime(r.startDate),
-            'End Date': formatDateTime(r.endDate),
-            'Total Sessions': r.totalSessions,
-            'Active Time': formatDuration(r.activeTime),
-            'Idle Time': formatDuration(r.idleTime),
-            'Productivity %': r.productivity.toFixed(1),
+            'Start Date': r.start_date ? formatDateTime(r.start_date) : '-',
+            'End Date': r.end_date ? formatDateTime(r.end_date) : '-',
+            'Total Sessions': r.total_sessions,
+            'Active Time': formatDuration(r.total_active_seconds),
+            'Idle Time': formatDuration(r.total_idle_seconds),
+            'Productivity %': (r.productivity || 0).toFixed(1),
         }));
         exportToCSV(exportData, 'productivity-reports');
     };
@@ -113,30 +107,32 @@ export const ReportsPage = () => {
             key: 'period',
             render: (record: Report) => (
                 <Space direction="vertical" size={0}>
-                    <span>{formatDateTime(record.startDate)}</span>
-                    <span style={{ fontSize: 12, color: '#8c8c8c' }}>to {formatDateTime(record.endDate)}</span>
+                    <span>{record.start_date ? formatDateTime(record.start_date) : '-'}</span>
+                    <span style={{ fontSize: 12, color: '#8c8c8c' }}>
+                        to {record.end_date ? formatDateTime(record.end_date) : '-'}
+                    </span>
                 </Space>
             ),
         },
         {
             title: 'Sessions',
-            dataIndex: 'totalSessions',
-            key: 'totalSessions',
-            sorter: (a: Report, b: Report) => a.totalSessions - b.totalSessions,
+            dataIndex: 'total_sessions',
+            key: 'total_sessions',
+            sorter: (a: Report, b: Report) => (a.total_sessions || 0) - (b.total_sessions || 0),
         },
         {
             title: 'Active Time',
-            dataIndex: 'activeTime',
-            key: 'activeTime',
+            dataIndex: 'total_active_seconds',
+            key: 'total_active_seconds',
             render: (seconds: number) => formatDuration(seconds),
-            sorter: (a: Report, b: Report) => a.activeTime - b.activeTime,
+            sorter: (a: Report, b: Report) => (a.total_active_seconds || 0) - (b.total_active_seconds || 0),
         },
         {
             title: 'Idle Time',
-            dataIndex: 'idleTime',
-            key: 'idleTime',
+            dataIndex: 'total_idle_seconds',
+            key: 'total_idle_seconds',
             render: (seconds: number) => formatDuration(seconds),
-            sorter: (a: Report, b: Report) => a.idleTime - b.idleTime,
+            sorter: (a: Report, b: Report) => (a.total_idle_seconds || 0) - (b.total_idle_seconds || 0),
         },
         {
             title: 'Productivity',
@@ -150,7 +146,7 @@ export const ReportsPage = () => {
 
                 return <Tag color={color}>{formatProductivity(productivity)}</Tag>;
             },
-            sorter: (a: Report, b: Report) => a.productivity - b.productivity,
+            sorter: (a: Report, b: Report) => (a.productivity || 0) - (b.productivity || 0),
         },
     ].filter((col) => !col.hidden);
 
@@ -222,7 +218,7 @@ export const ReportsPage = () => {
                             onChange={handleUserChange}
                             options={[
                                 { label: 'All Users', value: undefined },
-                                ...users.map((u) => ({ label: u.name, value: u.id })),
+                                ...users.map((u) => ({ label: `${u.first_name} ${u.last_name}`, value: u.id })),
                             ]}
                         />
                     )}
@@ -246,7 +242,7 @@ export const ReportsPage = () => {
                     columns={columns}
                     dataSource={reports}
                     loading={isLoading}
-                    rowKey="id"
+                    rowKey={(record) => record.id || `${record.user_id}-${record.start_date}`}
                     pagination={{ pageSize: 20, showSizeChanger: true }}
                     locale={{ emptyText: 'No reports found. Try adjusting the filters.' }}
                 />

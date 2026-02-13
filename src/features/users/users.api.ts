@@ -1,31 +1,28 @@
 import api from '@/services/api';
-import { mockUsers } from '@/mocks/data';
-import type { User } from '@/types';
+import type { User, CreateUserRequest, ResetPasswordRequest } from '@/types';
 
-// Mock mode flag - set to false when backend is ready
-const USE_MOCK_DATA = true;
-
-export const getUsers = async (): Promise<User[]> => {
-    if (USE_MOCK_DATA) {
-        return new Promise((resolve) => {
-            setTimeout(() => resolve(mockUsers), 300);
-        });
-    }
-    const response = await api.get('/users');
+export const getUsers = async (filters?: { manager_id?: string }): Promise<User[]> => {
+    const response = await api.get<User[]>('/users', { params: filters });
     return response.data;
 };
 
-export const deleteUser = async (id: string): Promise<void> => {
-    if (USE_MOCK_DATA) {
-        return new Promise((resolve) => {
-            setTimeout(() => {
-                const index = mockUsers.findIndex(u => u.id === id);
-                if (index !== -1) {
-                    mockUsers.splice(index, 1);
-                }
-                resolve();
-            }, 300);
-        });
-    }
-    await api.delete(`/users/${id}`);
+export const getOnlineUsers = async (): Promise<User[]> => {
+    const response = await api.get<User[]>('/users/online');
+    return response.data;
 };
+
+export const createUser = async (userData: CreateUserRequest): Promise<User> => {
+    const response = await api.post<User>('/users/invite', userData);
+    return response.data;
+};
+
+export const resetUserPassword = async (userId: string, data: ResetPasswordRequest): Promise<void> => {
+    await api.put(`/auth/reset-password/${userId}`, data);
+};
+
+export const deleteUser = async (_id: string): Promise<void> => {
+    // Spec doesn't have DELETE /users/{id}, but it does have GET /users/{id}
+    // We'll leave this or map to a future endpoint.
+    // await api.delete(`/users/${_id}`);
+};
+

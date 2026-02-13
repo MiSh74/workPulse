@@ -6,13 +6,13 @@ const { Title, Text } = Typography;
 
 interface ProductivityScoreProps {
     score: number; // 0-100
-    activeTime: number; // seconds
-    idleTime: number; // seconds
+    active_seconds: number;
+    idle_seconds: number;
     trend?: number; // percentage change from previous period
 }
 
-export const ProductivityScore = ({ score, activeTime, idleTime, trend }: ProductivityScoreProps) => {
-    const totalTime = activeTime + idleTime;
+export const ProductivityScore = ({ score, active_seconds, idle_seconds, trend }: ProductivityScoreProps) => {
+    const total_seconds = active_seconds + idle_seconds;
 
     // Determine color based on score
     const getColor = (score: number) => {
@@ -66,7 +66,7 @@ export const ProductivityScore = ({ score, activeTime, idleTime, trend }: Produc
                         <Card size="small" style={{ background: '#f0f9ff', border: '1px solid #bae7ff' }}>
                             <Statistic
                                 title={<Text style={{ fontSize: 12 }}>Active Time</Text>}
-                                value={formatDuration(activeTime)}
+                                value={formatDuration(active_seconds)}
                                 valueStyle={{ fontSize: 16, color: '#1890ff' }}
                             />
                         </Card>
@@ -75,7 +75,7 @@ export const ProductivityScore = ({ score, activeTime, idleTime, trend }: Produc
                         <Card size="small" style={{ background: '#fffbe6', border: '1px solid #ffe58f' }}>
                             <Statistic
                                 title={<Text style={{ fontSize: 12 }}>Idle Time</Text>}
-                                value={formatDuration(idleTime)}
+                                value={formatDuration(idle_seconds)}
                                 valueStyle={{ fontSize: 16, color: '#faad14' }}
                             />
                         </Card>
@@ -84,7 +84,7 @@ export const ProductivityScore = ({ score, activeTime, idleTime, trend }: Produc
 
                 <div style={{ textAlign: 'center' }}>
                     <Text type="secondary" style={{ fontSize: 12 }}>
-                        Total Time: {formatDuration(totalTime)}
+                        Total Time: {formatDuration(total_seconds)}
                     </Text>
                 </div>
             </Space>

@@ -45,7 +45,7 @@ export const usePresenceStore = create<PresenceState>((set) => ({
     updateUserStatus: (userId, status) =>
         set((state) => ({
             onlineUsers: state.onlineUsers.map((u) =>
-                u.id === userId ? { ...u, status, lastSeen: new Date().toISOString() } : u
+                u.id === userId ? { ...u, status, last_seen: new Date().toISOString() } : u
             ),
         })),
 }));

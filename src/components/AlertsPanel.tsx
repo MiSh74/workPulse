@@ -1,9 +1,9 @@
 import { Card, List, Button, Tag, Space, Typography, Empty } from 'antd';
-import { CheckCircleOutlined, WarningOutlined, InfoCircleOutlined } from '@ant-design/icons';
+import { CheckCircleOutlined, WarningOutlined, FieldTimeOutlined } from '@ant-design/icons';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
 import { formatDateTime } from '@/utils/format';
-import api from '@/services/api';
+import { getAlerts, resolveAlert } from '@/features/alerts/alerts.api';
 import type { Alert } from '@/types';
 
 const { Text, Title } = Typography;
@@ -19,45 +19,36 @@ export const AlertsPanel = ({ maxDisplay = 5, showActions = true }: AlertsPanelP
 
     const { data: alerts = [], isLoading } = useQuery<Alert[]>({
         queryKey: ['alerts', 'recent'],
-        queryFn: async () => {
-            const response = await api.get('/alerts?limit=' + maxDisplay);
-            return response.data;
-        },
+        queryFn: () => getAlerts({ resolved: false }),
         refetchInterval: 30000, // Refetch every 30 seconds
     });
 
     const resolveMutation = useMutation({
-        mutationFn: async (alertId: string) => {
-            await api.patch(`/alerts/${alertId}/resolve`);
-        },
+        mutationFn: resolveAlert,
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ['alerts'] });
         },
     });
 
-    const getSeverityIcon = (severity: 'info' | 'warning' | 'error') => {
-        switch (severity) {
-            case 'error':
+    const getTypeIcon = (type: 'idle' | 'overtime') => {
+        switch (type) {
+            case 'overtime':
                 return <WarningOutlined style={{ color: '#ff4d4f' }} />;
-            case 'warning':
-                return <WarningOutlined style={{ color: '#faad14' }} />;
-            case 'info':
-                return <InfoCircleOutlined style={{ color: '#1890ff' }} />;
+            case 'idle':
+                return <FieldTimeOutlined style={{ color: '#faad14' }} />;
         }
     };
 
-    const getTypeColor = (type: 'inactive' | 'overtime' | 'system') => {
+    const getTypeColor = (type: 'idle' | 'overtime') => {
         switch (type) {
-            case 'inactive':
+            case 'idle':
                 return 'orange';
             case 'overtime':
                 return 'red';
-            case 'system':
-                return 'blue';
         }
     };
 
-    const unresolvedAlerts = alerts.filter((a) => !a.resolved);
+    const unresolvedAlerts = alerts.filter((a) => !a.resolved_at).slice(0, maxDisplay);
 
     return (
         <Card>
@@ -101,10 +92,10 @@ export const AlertsPanel = ({ maxDisplay = 5, showActions = true }: AlertsPanelP
                                 }
                             >
                                 <List.Item.Meta
-                                    avatar={getSeverityIcon(alert.severity)}
+                                    avatar={getTypeIcon(alert.type as any)}
                                     title={
                                         <Space>
-                                            <Tag color={getTypeColor(alert.type)}>
+                                            <Tag color={getTypeColor(alert.type as any)}>
                                                 {alert.type.toUpperCase()}
                                             </Tag>
                                             {alert.userName && <Text strong>{alert.userName}</Text>}
@@ -114,7 +105,7 @@ export const AlertsPanel = ({ maxDisplay = 5, showActions = true }: AlertsPanelP
                                         <Space direction="vertical" size={0}>
                                             <Text>{alert.message}</Text>
                                             <Text type="secondary" style={{ fontSize: 12 }}>
-                                                {formatDateTime(alert.timestamp)}
+                                                {formatDateTime(alert.created_at)}
                                             </Text>
                                         </Space>
                                     }

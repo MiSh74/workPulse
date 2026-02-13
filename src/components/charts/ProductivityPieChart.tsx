@@ -2,8 +2,8 @@ import { memo } from 'react';
 import { PieChart, Pie, Cell, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 
 interface ProductivityPieChartProps {
-    activeTime: number; // seconds
-    idleTime: number; // seconds
+    active_seconds: number;
+    idle_seconds: number;
     height?: number;
 }
 
@@ -12,10 +12,10 @@ const COLORS = {
     idle: '#faad14',
 };
 
-export const ProductivityPieChart = memo(({ activeTime, idleTime, height = 300 }: ProductivityPieChartProps) => {
+export const ProductivityPieChart = memo(({ active_seconds, idle_seconds, height = 300 }: ProductivityPieChartProps) => {
     const data = [
-        { name: 'Active Time', value: activeTime },
-        { name: 'Idle Time', value: idleTime },
+        { name: 'Active Time', value: active_seconds },
+        { name: 'Idle Time', value: idle_seconds },
     ];
 
     const formatTooltip = (value: number) => {
@@ -32,7 +32,7 @@ export const ProductivityPieChart = memo(({ activeTime, idleTime, height = 300 }
                     cy="50%"
                     labelLine={false}
                     label={(entry) => {
-                        const percent = ((entry.value / (activeTime + idleTime)) * 100).toFixed(1);
+                        const percent = ((entry.value / (active_seconds + idle_seconds)) * 100).toFixed(1);
                         return `${entry.name}: ${percent}%`;
                     }}
                     outerRadius={80}

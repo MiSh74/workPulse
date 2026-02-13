@@ -21,8 +21,8 @@ export const ProductivityBarChart = memo(({ data, height = 300 }: ProductivityBa
                     }}
                 />
                 <Legend />
-                <Bar dataKey="activeTime" fill="#52c41a" name="Active Time" stackId="a" />
-                <Bar dataKey="idleTime" fill="#faad14" name="Idle Time" stackId="a" />
+                <Bar dataKey="total_active_seconds" fill="#52c41a" name="Active Time" stackId="a" />
+                <Bar dataKey="total_idle_seconds" fill="#faad14" name="Idle Time" stackId="a" />
             </BarChart>
         </ResponsiveContainer>
     );

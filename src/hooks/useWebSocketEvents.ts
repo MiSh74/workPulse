@@ -25,12 +25,17 @@ export const useWebSocketEvents = () => {
             onUserOnline: (data: UserOnlinePayload) => {
                 console.log('User online:', data);
                 const onlineUser: OnlineUser = {
-                    id: data.userId,
-                    name: data.userName,
+                    id: data.user_id,
+                    first_name: data.first_name,
+                    last_name: data.last_name,
                     email: '', // Not provided in event
-                    role: data.userRole,
+                    role: data.role as any,
                     status: 'active',
-                    lastSeen: new Date().toISOString(),
+                    last_seen: new Date().toISOString(),
+                    organization_id: '', // Placeholder
+                    manager_id: null,
+                    employee_id: '',
+                    created_at: new Date().toISOString(),
                 };
                 addOnlineUser(onlineUser);
 
@@ -40,7 +45,7 @@ export const useWebSocketEvents = () => {
 
             onUserOffline: (data: UserOfflinePayload) => {
                 console.log('User offline:', data);
-                removeOnlineUser(data.userId);
+                removeOnlineUser(data.user_id);
 
                 // Refetch online users
                 queryClient.invalidateQueries({ queryKey: ['users', 'online'] });

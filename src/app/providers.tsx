@@ -12,12 +12,12 @@ import { useEffect } from 'react';
  * Initializes WebSocket connection and event listeners
  */
 const WebSocketProvider = ({ children }: { children: React.ReactNode }) => {
-    const { token, isAuthenticated } = useAuthStore();
+    const { accessToken, isAuthenticated } = useAuthStore();
 
     // Initialize WebSocket connection when authenticated
     useEffect(() => {
-        if (isAuthenticated && token) {
-            websocketService.connect(token);
+        if (isAuthenticated && accessToken) {
+            websocketService.connect(accessToken);
         }
 
         return () => {
@@ -25,7 +25,7 @@ const WebSocketProvider = ({ children }: { children: React.ReactNode }) => {
                 websocketService.disconnect();
             }
         };
-    }, [isAuthenticated, token]);
+    }, [isAuthenticated, accessToken]);
 
     // Setup event handlers
     useWebSocketEvents();

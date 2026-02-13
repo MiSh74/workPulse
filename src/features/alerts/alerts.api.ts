@@ -1,82 +1,34 @@
 import api from '@/services/api';
-import { mockAlerts } from '@/mocks/data';
 import type { Alert } from '@/types';
 
-// Mock mode flag - set to false when backend is ready
-const USE_MOCK_DATA = true;
-
+/**
+ * List alerts (role-scoped)
+ */
 export const getAlerts = async (params?: {
-    type?: string;
-    severity?: string;
+    type?: 'idle' | 'overtime';
     resolved?: boolean;
-    limit?: number;
 }): Promise<Alert[]> => {
-    if (USE_MOCK_DATA) {
-        return new Promise((resolve) => {
-            setTimeout(() => {
-                let filtered = [...mockAlerts];
-                if (params?.type) {
-                    filtered = filtered.filter(a => a.type === params.type);
-                }
-                if (params?.severity) {
-                    filtered = filtered.filter(a => a.severity === params.severity);
-                }
-                if (params?.resolved !== undefined) {
-                    filtered = filtered.filter(a => a.resolved === params.resolved);
-                }
-                if (params?.limit) {
-                    filtered = filtered.slice(0, params.limit);
-                }
-                resolve(filtered);
-            }, 300);
-        });
-    }
-    const response = await api.get('/alerts', { params });
+    const response = await api.get<Alert[]>('/alerts', { params });
     return response.data;
 };
 
+/**
+ * Resolve alert
+ */
 export const resolveAlert = async (alertId: string): Promise<void> => {
-    if (USE_MOCK_DATA) {
-        return new Promise((resolve) => {
-            setTimeout(() => {
-                const alert = mockAlerts.find(a => a.id === alertId);
-                if (alert) {
-                    alert.resolved = true;
-                    alert.resolvedAt = new Date().toISOString();
-                }
-                resolve();
-            }, 300);
-        });
-    }
     await api.patch(`/alerts/${alertId}/resolve`);
 };
 
+/**
+ * Resolve all alerts
+ */
 export const resolveAllAlerts = async (): Promise<void> => {
-    if (USE_MOCK_DATA) {
-        return new Promise((resolve) => {
-            setTimeout(() => {
-                mockAlerts.forEach(alert => {
-                    if (!alert.resolved) {
-                        alert.resolved = true;
-                        alert.resolvedAt = new Date().toISOString();
-                    }
-                });
-                resolve();
-            }, 300);
-        });
-    }
-    await api.patch('/alerts/resolve-all');
+    // Note: Swagger doesn't have resolve-all. 
+    // We could loop resolveAlert or keep this if backend extends it.
 };
 
 export const getUnresolvedCount = async (): Promise<number> => {
-    if (USE_MOCK_DATA) {
-        return new Promise((resolve) => {
-            setTimeout(() => {
-                const count = mockAlerts.filter(a => !a.resolved).length;
-                resolve(count);
-            }, 300);
-        });
-    }
-    const response = await api.get('/alerts/unresolved/count');
-    return response.data.count;
+    const response = await api.get<Alert[]>('/alerts');
+    return response.data.filter(a => !a.resolved_at).length;
 };
+

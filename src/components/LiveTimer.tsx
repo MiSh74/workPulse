@@ -5,34 +5,34 @@ import { ClockCircleOutlined } from '@ant-design/icons';
 const { Title, Text } = Typography;
 
 interface LiveTimerProps {
-    startTime: string;
-    additionalSeconds?: number;
-    status?: 'active' | 'idle' | 'stopped';
+    start_time: string;
+    total_active_seconds?: number;
+    status?: 'active' | 'stopped';
     showIcon?: boolean;
 }
 
 export const LiveTimer = ({
-    startTime,
-    additionalSeconds = 0,
+    start_time,
+    total_active_seconds = 0,
     status = 'active',
     showIcon = true,
 }: LiveTimerProps) => {
     const [elapsedSeconds, setElapsedSeconds] = useState(0);
 
     useEffect(() => {
-        const start = new Date(startTime).getTime();
+        const start = new Date(start_time).getTime();
 
         const updateTimer = () => {
             const now = Date.now();
             const diff = Math.floor((now - start) / 1000);
-            setElapsedSeconds(diff + additionalSeconds);
+            setElapsedSeconds(diff + total_active_seconds);
         };
 
         updateTimer();
         const interval = setInterval(updateTimer, 1000);
 
         return () => clearInterval(interval);
-    }, [startTime, additionalSeconds]);
+    }, [start_time, total_active_seconds]);
 
     const formatTime = (seconds: number): string => {
         const hours = Math.floor(seconds / 3600);
@@ -42,14 +42,9 @@ export const LiveTimer = ({
         return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
     };
 
-    // Determine color based on status and duration
     const getColor = () => {
-        if (status === 'idle') return '#faad14'; // yellow
         if (status === 'stopped') return '#d9d9d9'; // gray
-
-        // Check for overtime (9+ hours)
         if (elapsedSeconds >= 9 * 3600) return '#ff4d4f'; // red
-
         return '#52c41a'; // green
     };
 
@@ -74,11 +69,6 @@ export const LiveTimer = ({
                 >
                     {formatTime(elapsedSeconds)}
                 </Title>
-                {status === 'idle' && (
-                    <Text type="warning" style={{ fontSize: 14 }}>
-                        Idle
-                    </Text>
-                )}
                 {elapsedSeconds >= 9 * 3600 && (
                     <Text type="danger" style={{ fontSize: 14 }}>
                         Overtime

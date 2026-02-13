@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Card, Table, Button, Select, Space, Typography, Tag, message, Row, Col, Statistic } from 'antd';
-import { CheckCircleOutlined, ReloadOutlined, WarningOutlined, InfoCircleOutlined } from '@ant-design/icons';
+import { CheckCircleOutlined, ReloadOutlined, WarningOutlined, FieldTimeOutlined } from '@ant-design/icons';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useAuthStore } from '@/store/auth.store';
 import { formatDateTime } from '@/utils/format';
@@ -12,8 +12,7 @@ const { Title } = Typography;
 export const AlertsPage = () => {
     const user = useAuthStore((state) => state.user);
     const queryClient = useQueryClient();
-    const [typeFilter, setTypeFilter] = useState<string | undefined>();
-    const [severityFilter, setSeverityFilter] = useState<string | undefined>();
+    const [typeFilter, setTypeFilter] = useState<'idle' | 'overtime' | undefined>();
     const [statusFilter, setStatusFilter] = useState<boolean | undefined>(false); // Default: show unresolved
 
     const isAdmin = user?.role === 'admin';
@@ -21,11 +20,10 @@ export const AlertsPage = () => {
 
     // Fetch alerts
     const { data: alerts = [], isLoading } = useQuery<Alert[]>({
-        queryKey: ['alerts', 'all', typeFilter, severityFilter, statusFilter],
+        queryKey: ['alerts', 'all', typeFilter, statusFilter],
         queryFn: () =>
             getAlerts({
                 type: typeFilter,
-                severity: severityFilter,
                 resolved: statusFilter,
             }),
         refetchInterval: 30000, // Refetch every 30 seconds
@@ -56,47 +54,39 @@ export const AlertsPage = () => {
     });
 
     // Calculate metrics
-    const unresolvedCount = alerts.filter((a) => !a.resolved).length;
-    const errorCount = alerts.filter((a) => a.severity === 'error' && !a.resolved).length;
-    const warningCount = alerts.filter((a) => a.severity === 'warning' && !a.resolved).length;
+    const unresolvedCount = alerts.filter((a) => !a.resolved_at).length;
+    const idleCount = alerts.filter((a) => a.type === 'idle' && !a.resolved_at).length;
+    const overtimeCount = alerts.filter((a) => a.type === 'overtime' && !a.resolved_at).length;
 
-    const getSeverityIcon = (severity: 'info' | 'warning' | 'error') => {
-        switch (severity) {
-            case 'error':
+    const getTypeIcon = (type: 'idle' | 'overtime') => {
+        switch (type) {
+            case 'overtime':
                 return <WarningOutlined style={{ color: '#ff4d4f', fontSize: 16 }} />;
-            case 'warning':
-                return <WarningOutlined style={{ color: '#faad14', fontSize: 16 }} />;
-            case 'info':
-                return <InfoCircleOutlined style={{ color: '#1890ff', fontSize: 16 }} />;
+            case 'idle':
+                return <FieldTimeOutlined style={{ color: '#faad14', fontSize: 16 }} />;
         }
     };
 
-    const getTypeColor = (type: 'inactive' | 'overtime' | 'system') => {
+    const getTypeColor = (type: 'idle' | 'overtime') => {
         switch (type) {
-            case 'inactive':
+            case 'idle':
                 return 'orange';
             case 'overtime':
                 return 'red';
-            case 'system':
-                return 'blue';
         }
     };
 
     const columns = [
         {
-            title: 'Severity',
-            dataIndex: 'severity',
-            key: 'severity',
-            width: 100,
-            render: (severity: 'info' | 'warning' | 'error') => getSeverityIcon(severity),
-        },
-        {
             title: 'Type',
             dataIndex: 'type',
             key: 'type',
-            width: 120,
-            render: (type: 'inactive' | 'overtime' | 'system') => (
-                <Tag color={getTypeColor(type)}>{type.toUpperCase()}</Tag>
+            width: 150,
+            render: (type: 'idle' | 'overtime') => (
+                <Space>
+                    {getTypeIcon(type)}
+                    <Tag color={getTypeColor(type)}>{type.toUpperCase()}</Tag>
+                </Space>
             ),
         },
         {
@@ -114,19 +104,18 @@ export const AlertsPage = () => {
         },
         {
             title: 'Time',
-            dataIndex: 'timestamp',
-            key: 'timestamp',
+            dataIndex: 'created_at',
+            key: 'created_at',
             width: 180,
             render: (time: string) => formatDateTime(time),
-            sorter: (a: Alert, b: Alert) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime(),
+            sorter: (a: Alert, b: Alert) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime(),
         },
         {
             title: 'Status',
-            dataIndex: 'resolved',
-            key: 'resolved',
-            width: 100,
-            render: (resolved: boolean) =>
-                resolved ? (
+            key: 'status',
+            width: 120,
+            render: (record: Alert) =>
+                record.resolved_at ? (
                     <Tag color="success" icon={<CheckCircleOutlined />}>
                         Resolved
                     </Tag>
@@ -138,8 +127,9 @@ export const AlertsPage = () => {
             title: 'Actions',
             key: 'actions',
             width: 120,
+            hidden: !isAdmin && !isManager,
             render: (record: Alert) =>
-                !record.resolved ? (
+                !record.resolved_at ? (
                     <Button
                         type="link"
                         size="small"
@@ -166,15 +156,17 @@ export const AlertsPage = () => {
                     >
                         Refresh
                     </Button>
-                    <Button
-                        type="primary"
-                        icon={<CheckCircleOutlined />}
-                        onClick={() => resolveAllMutation.mutate()}
-                        loading={resolveAllMutation.isPending}
-                        disabled={unresolvedCount === 0}
-                    >
-                        Resolve All
-                    </Button>
+                    {(isAdmin || isManager) && (
+                        <Button
+                            type="primary"
+                            icon={<CheckCircleOutlined />}
+                            onClick={() => resolveAllMutation.mutate()}
+                            loading={resolveAllMutation.isPending}
+                            disabled={unresolvedCount === 0}
+                        >
+                            Resolve All
+                        </Button>
+                    )}
                 </Space>
             </div>
 
@@ -192,18 +184,18 @@ export const AlertsPage = () => {
                 <Col xs={24} sm={8}>
                     <Card>
                         <Statistic
-                            title="Critical"
-                            value={errorCount}
-                            valueStyle={{ color: '#ff4d4f' }}
+                            title="Idle Warnings"
+                            value={idleCount}
+                            valueStyle={{ color: '#faad14' }}
                         />
                     </Card>
                 </Col>
                 <Col xs={24} sm={8}>
                     <Card>
                         <Statistic
-                            title="Warnings"
-                            value={warningCount}
-                            valueStyle={{ color: '#faad14' }}
+                            title="Overtime Alerts"
+                            value={overtimeCount}
+                            valueStyle={{ color: '#ff4d4f' }}
                         />
                     </Card>
                 </Col>
@@ -219,22 +211,8 @@ export const AlertsPage = () => {
                         onChange={setTypeFilter}
                         options={[
                             { label: 'All Types', value: undefined },
-                            { label: 'Inactive', value: 'inactive' },
+                            { label: 'Idle', value: 'idle' },
                             { label: 'Overtime', value: 'overtime' },
-                            { label: 'System', value: 'system' },
-                        ]}
-                    />
-
-                    <Select
-                        placeholder="Filter by Severity"
-                        style={{ width: 150 }}
-                        allowClear
-                        onChange={setSeverityFilter}
-                        options={[
-                            { label: 'All Severities', value: undefined },
-                            { label: 'Error', value: 'error' },
-                            { label: 'Warning', value: 'warning' },
-                            { label: 'Info', value: 'info' },
                         ]}
                     />
 
