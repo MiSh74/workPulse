@@ -33,13 +33,13 @@ export const Sidebar = () => {
             icon: <ProjectOutlined />,
             label: 'Projects',
         },
-        // Team - visible to Admin and Manager
+        // Users/Team - visible to Admin and Manager
         ...(isAdmin || isManager
             ? [
                 {
-                    key: '/team',
-                    icon: <TeamOutlined />,
-                    label: 'Team',
+                    key: '/users',
+                    icon: <UserOutlined />,
+                    label: isAdmin ? 'Users' : 'My Team',
                 },
             ]
             : []),
@@ -50,16 +50,6 @@ export const Sidebar = () => {
                     key: '/reports',
                     icon: <FileTextOutlined />,
                     label: 'Reports',
-                },
-            ]
-            : []),
-        // Users - Admin only
-        ...(isAdmin
-            ? [
-                {
-                    key: '/users',
-                    icon: <UserOutlined />,
-                    label: 'Users',
                 },
             ]
             : []),

@@ -7,7 +7,7 @@ import type {
     AlertPayload,
 } from '@/types';
 
-const WS_URL = import.meta.env.VITE_WS_URL || 'http://localhost:5000';
+const WS_URL = import.meta.env.VITE_WS_URL || 'http://localhost:3000';
 
 type EventCallback = (data: unknown) => void;
 

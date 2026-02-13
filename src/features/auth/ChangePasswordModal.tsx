@@ -23,10 +23,11 @@ export const ChangePasswordModal = ({ open, onCancel }: ChangePasswordModalProps
         },
     });
 
-    const onFinish = (values: ChangePasswordRequest & { confirm_password: string }) => {
+    const onFinish = (values: ChangePasswordRequest) => {
         mutation.mutate({
-            current_password: values.current_password,
+            old_password: values.old_password,
             new_password: values.new_password,
+            confirm_password: values.confirm_password,
         });
     };
 
@@ -41,7 +42,7 @@ export const ChangePasswordModal = ({ open, onCancel }: ChangePasswordModalProps
         >
             <Form form={form} layout="vertical" onFinish={onFinish}>
                 <Form.Item
-                    name="current_password"
+                    name="old_password"
                     label="Current Password"
                     rules={[{ required: true, message: 'Please input your current password!' }]}
                 >

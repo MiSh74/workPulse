@@ -65,7 +65,7 @@ export const OnlineUsersPanel = ({ maxDisplay = 10, filterByRole }: OnlineUsersP
                                 }
                                 title={
                                     <Space>
-                                        <Text strong>{onlineUser.first_name} {onlineUser.last_name}</Text>
+                                        <Text strong>{onlineUser.first_name || ''} {onlineUser.last_name || ''}</Text>
                                         {onlineUser.id === user?.id && (
                                             <Text type="secondary" style={{ fontSize: 12 }}>
                                                 (You)
@@ -76,7 +76,7 @@ export const OnlineUsersPanel = ({ maxDisplay = 10, filterByRole }: OnlineUsersP
                                 description={
                                     <Space direction="vertical" size={0}>
                                         <Text type="secondary" style={{ fontSize: 12 }}>
-                                            {onlineUser.role.charAt(0).toUpperCase() + onlineUser.role.slice(1)}
+                                            {onlineUser.role ? onlineUser.role.charAt(0).toUpperCase() + onlineUser.role.slice(1) : 'User'}
                                         </Text>
                                         <Text type="secondary" style={{ fontSize: 11 }}>
                                             {onlineUser.last_seen ? formatLastSeen(onlineUser.last_seen) : 'Never'}

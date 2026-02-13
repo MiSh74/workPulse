@@ -4,9 +4,9 @@ import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { formatDateTime } from '@/utils/format';
 import { getProjects, createProject, deleteProject, assignManagerToProject, assignTeamMembersToProject } from './projects.api';
-import { mockUsers } from '@/mocks/data';
+import { getUsers } from '@/features/users/users.api';
 import { useAuthStore } from '@/store/auth.store';
-import type { Project } from '@/types';
+import type { Project, User } from '@/types';
 
 const { Title } = Typography;
 
@@ -86,13 +86,20 @@ export const ProjectsPage = () => {
         },
     });
 
+    // Fetch users from API for manager/team assignment dropdowns
+    const { data: allUsers = [] } = useQuery<User[]>({
+        queryKey: ['users'],
+        queryFn: () => getUsers(),
+        enabled: !!user && (user.role === 'admin' || user.role === 'manager'),
+    });
+
     // Get managers for dropdown (only for admin)
-    const managers = mockUsers.filter(u => u.role === 'manager');
+    const managers = allUsers.filter(u => u.role === 'manager');
 
     // Get employees for team assignment (filter by manager if user is manager)
     const employees = user?.role === 'manager'
-        ? mockUsers.filter(u => u.role === 'employee' && u.manager_id === user.id)
-        : mockUsers.filter(u => u.role === 'employee');
+        ? allUsers.filter(u => u.role === 'employee' && u.manager_id === user.id)
+        : allUsers.filter(u => u.role === 'employee');
 
     const baseColumns = [
         {

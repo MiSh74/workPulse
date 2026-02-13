@@ -20,9 +20,6 @@ const UsersPage = lazy(() =>
 const AlertsPage = lazy(() =>
     import('@/features/alerts/AlertsPage').then((m) => ({ default: m.AlertsPage }))
 );
-const TeamPage = lazy(() =>
-    import('@/features/teams/TeamPage').then((m) => ({ default: m.TeamPage }))
-);
 
 export const router = createBrowserRouter([
     {
@@ -78,14 +75,6 @@ export const router = createBrowserRouter([
                 element: (
                     <Suspense fallback={<PageLoader />}>
                         <AlertsPage />
-                    </Suspense>
-                ),
-            },
-            {
-                path: 'team',
-                element: (
-                    <Suspense fallback={<PageLoader />}>
-                        <TeamPage />
                     </Suspense>
                 ),
             },

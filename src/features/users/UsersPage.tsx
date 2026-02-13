@@ -1,9 +1,9 @@
 import { Card, Table, Button, Tag, message, Typography, Modal, Form, Input, Select, Space, Tooltip, Row, Col } from 'antd';
-import { DeleteOutlined, UserAddOutlined, CopyOutlined, ReloadOutlined, KeyOutlined } from '@ant-design/icons';
+import { UserAddOutlined, CopyOutlined, ReloadOutlined, KeyOutlined } from '@ant-design/icons';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 import { formatDate } from '@/utils/format';
-import { getUsers, deleteUser, createUser, resetUserPassword } from './users.api';
+import { getUsers, createUser, resetUserPassword, assignManager } from './users.api';
 import { useAuthStore } from '@/store/auth.store';
 import type { User, CreateUserRequest, ResetPasswordRequest } from '@/types';
 
@@ -22,6 +22,14 @@ export const UsersPage = () => {
     const { data: users = [], isLoading } = useQuery<User[]>({
         queryKey: ['users', currentUser?.id, currentUser?.role],
         queryFn: () => getUsers(currentUser?.role === 'manager' ? { manager_id: currentUser.id } : undefined),
+    });
+
+    // Fetch all potential managers
+    const { data: managers = [] } = useQuery<User[]>({
+        queryKey: ['users', 'managers'],
+        queryFn: () => getUsers(),
+        enabled: currentUser?.role === 'admin',
+        select: (data) => data.filter(u => u.role === 'manager' || u.role === 'admin'),
     });
 
     const generateRandomPassword = () => {
@@ -66,14 +74,14 @@ export const UsersPage = () => {
         },
     });
 
-    const deleteMutation = useMutation({
-        mutationFn: deleteUser,
+    const reassignMutation = useMutation({
+        mutationFn: ({ userId, managerId }: { userId: string, managerId: string }) => assignManager(userId, { manager_id: managerId }),
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ['users'] });
-            message.success('User deleted successfully');
+            message.success('Manager reassigned successfully');
         },
         onError: (error: Error) => {
-            message.error(error.message || 'Failed to delete user');
+            message.error(error.message || 'Failed to reassign manager');
         },
     });
 
@@ -83,6 +91,13 @@ export const UsersPage = () => {
             return targetRole === 'manager' || targetRole === 'employee';
         }
         return false;
+    };
+
+    const getRealtimeStatus = (user: User) => {
+        if (!user.last_seen) return 'offline';
+        const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000);
+        const lastSeen = new Date(user.last_seen);
+        return lastSeen > fiveMinutesAgo ? 'online' : 'offline';
     };
 
     const columns = [
@@ -117,16 +132,32 @@ export const UsersPage = () => {
             },
         },
         {
-            title: 'Status',
-            dataIndex: 'status',
-            key: 'status',
-            render: (status: string) => <Tag color={status === 'active' ? 'success' : 'default'} style={{ borderRadius: 4 }}>{status.toUpperCase()}</Tag>,
+            title: 'Manager',
+            key: 'manager',
+            render: (record: User) => {
+                if (record.role !== 'employee') return <Typography.Text type="secondary">-</Typography.Text>;
+                const manager = users.find(u => u.id === record.manager_id);
+                return manager ? `${manager.first_name} ${manager.last_name}` : <Typography.Text type="secondary">Not assigned</Typography.Text>;
+            },
         },
         {
-            title: 'Created',
-            dataIndex: 'created_at',
-            key: 'created_at',
-            render: (date: string) => <Typography.Text type="secondary" style={{ fontSize: 13 }}>{formatDate(date)}</Typography.Text>,
+            title: 'Status',
+            key: 'status',
+            render: (record: User) => {
+                const status = getRealtimeStatus(record);
+                return (
+                    <Tag color={status === 'online' ? 'success' : 'default'} style={{ borderRadius: 4, display: 'inline-flex', alignItems: 'center' }}>
+                        <span style={{
+                            width: 6,
+                            height: 6,
+                            borderRadius: '50%',
+                            backgroundColor: status === 'online' ? '#52c41a' : '#bfbfbf',
+                            marginRight: 6
+                        }} />
+                        {status.toUpperCase()}
+                    </Tag>
+                );
+            },
         },
         {
             title: 'Actions',
@@ -135,6 +166,20 @@ export const UsersPage = () => {
                 <Space size="middle">
                     {canManageUser(record.role) && (
                         <>
+                            {record.role === 'employee' && currentUser?.role === 'admin' && (
+                                <Select
+                                    placeholder="Reassign Manager"
+                                    style={{ width: 160 }}
+                                    defaultValue={record.manager_id}
+                                    onChange={(value) => reassignMutation.mutate({ userId: record.id, managerId: value })}
+                                    loading={reassignMutation.isPending && selectedUser?.id === record.id}
+                                    onFocus={() => setSelectedUser(record)}
+                                >
+                                    {managers.map(m => (
+                                        <Option key={m.id} value={m.id}>{`${m.first_name} ${m.last_name}`}</Option>
+                                    ))}
+                                </Select>
+                            )}
                             <Tooltip title="Reset Password">
                                 <Button
                                     type="text"
@@ -144,15 +189,6 @@ export const UsersPage = () => {
                                         setSelectedUser(record);
                                         setIsResetModalVisible(true);
                                     }}
-                                />
-                            </Tooltip>
-                            <Tooltip title="Delete User">
-                                <Button
-                                    type="text"
-                                    danger
-                                    icon={<DeleteOutlined />}
-                                    onClick={() => deleteMutation.mutate(record.id)}
-                                    loading={deleteMutation.isPending}
                                 />
                             </Tooltip>
                         </>
@@ -180,6 +216,7 @@ export const UsersPage = () => {
             email: values.email,
             role: values.role,
             employee_id: values.employee_id,
+            manager_id: values.manager_id,
         };
         createMutation.mutate(payload);
     };
@@ -292,6 +329,29 @@ export const UsersPage = () => {
                                 </Option>
                             ))}
                         </Select>
+                    </Form.Item>
+
+                    <Form.Item
+                        noStyle
+                        shouldUpdate={(prevValues, currentValues) => prevValues.role !== currentValues.role}
+                    >
+                        {({ getFieldValue }) =>
+                            getFieldValue('role') === 'employee' && (
+                                <Form.Item
+                                    name="manager_id"
+                                    label="Assign Manager"
+                                    rules={[{ required: true, message: 'Please select a manager!' }]}
+                                >
+                                    <Select placeholder="Select a manager">
+                                        {managers.map((m) => (
+                                            <Option key={m.id} value={m.id}>
+                                                {`${m.first_name} ${m.last_name}`}
+                                            </Option>
+                                        ))}
+                                    </Select>
+                                </Form.Item>
+                            )
+                        }
                     </Form.Item>
                     <Form.Item
                         name="password"

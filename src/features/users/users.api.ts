@@ -20,9 +20,8 @@ export const resetUserPassword = async (userId: string, data: ResetPasswordReque
     await api.put(`/auth/reset-password/${userId}`, data);
 };
 
-export const deleteUser = async (_id: string): Promise<void> => {
-    // Spec doesn't have DELETE /users/{id}, but it does have GET /users/{id}
-    // We'll leave this or map to a future endpoint.
-    // await api.delete(`/users/${_id}`);
+export const assignManager = async (userId: string, data: { manager_id: string }): Promise<User> => {
+    const response = await api.patch<User>(`/users/${userId}/manager`, data);
+    return response.data;
 };
 
