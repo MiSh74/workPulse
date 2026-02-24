@@ -1,8 +1,10 @@
 import { useEffect } from 'react';
-import { useQueryClient } from '@tanstack/react-query';
+import { useQueryClient, useQuery } from '@tanstack/react-query';
 import { websocketService } from '@/services/websocket';
 import { usePresenceStore } from '@/store/presence.store';
 import { useSessionStore } from '@/store/session.store';
+import { getOnlineUsers } from '@/features/users/users.api';
+import { useAuthStore } from '@/store/auth.store';
 import type {
     UserOnlinePayload,
     UserOfflinePayload,
@@ -17,8 +19,20 @@ import type {
  */
 export const useWebSocketEvents = () => {
     const queryClient = useQueryClient();
-    const { addOnlineUser, removeOnlineUser } = usePresenceStore();
+    const { addOnlineUser, removeOnlineUser, setOnlineUsers } = usePresenceStore();
     const { setActiveSession } = useSessionStore();
+    const isAuthenticated = useAuthStore(state => state.isAuthenticated);
+
+    // Fetch initial online users when authenticated
+    useQuery({
+        queryKey: ['users', 'online'],
+        queryFn: async () => {
+            const users = await getOnlineUsers();
+            setOnlineUsers(users as unknown as OnlineUser[]);
+            return users;
+        },
+        enabled: isAuthenticated,
+    });
 
     useEffect(() => {
         const handlers = {

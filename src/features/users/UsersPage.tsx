@@ -2,9 +2,9 @@ import { Card, Table, Button, Tag, message, Typography, Modal, Form, Input, Sele
 import { UserAddOutlined, CopyOutlined, ReloadOutlined, KeyOutlined } from '@ant-design/icons';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
-import { formatDate } from '@/utils/format';
 import { getUsers, createUser, resetUserPassword, assignManager } from './users.api';
 import { useAuthStore } from '@/store/auth.store';
+import { usePresenceStore } from '@/store/presence.store';
 import type { User, CreateUserRequest, ResetPasswordRequest } from '@/types';
 
 const { Option } = Select;
@@ -12,6 +12,7 @@ const { Option } = Select;
 export const UsersPage = () => {
     const queryClient = useQueryClient();
     const currentUser = useAuthStore((state) => state.user);
+    const onlineUsers = usePresenceStore((state) => state.onlineUsers);
     const [isModalVisible, setIsModalVisible] = useState(false);
     const [isResetModalVisible, setIsResetModalVisible] = useState(false);
     const [selectedUser, setSelectedUser] = useState<User | null>(null);
@@ -94,10 +95,7 @@ export const UsersPage = () => {
     };
 
     const getRealtimeStatus = (user: User) => {
-        if (!user.last_seen) return 'offline';
-        const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000);
-        const lastSeen = new Date(user.last_seen);
-        return lastSeen > fiveMinutesAgo ? 'online' : 'offline';
+        return onlineUsers.some(u => u.id === user.id) ? 'online' : 'offline';
     };
 
     const columns = [

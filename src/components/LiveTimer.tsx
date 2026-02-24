@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Typography, Space } from 'antd';
 import { ClockCircleOutlined } from '@ant-design/icons';
 
@@ -7,7 +7,7 @@ const { Title, Text } = Typography;
 interface LiveTimerProps {
     start_time: string;
     total_active_seconds?: number;
-    status?: 'active' | 'stopped';
+    status?: 'active' | 'paused' | 'stopped';
     showIcon?: boolean;
 }
 
@@ -17,35 +17,41 @@ export const LiveTimer = ({
     status = 'active',
     showIcon = true,
 }: LiveTimerProps) => {
-    const [elapsedSeconds, setElapsedSeconds] = useState(0);
+    const [displaySeconds, setDisplaySeconds] = useState(total_active_seconds);
+    const baseRef = useRef(total_active_seconds);
+    const tickStartRef = useRef(Date.now());
 
+    // When server sends refreshed totals, update base and reset tick reference
     useEffect(() => {
-        const start = new Date(start_time).getTime();
+        baseRef.current = total_active_seconds;
+        tickStartRef.current = Date.now();
+        setDisplaySeconds(total_active_seconds);
+    }, [total_active_seconds, start_time]);
 
-        const updateTimer = () => {
-            const now = Date.now();
-            const diff = Math.floor((now - start) / 1000);
-            setElapsedSeconds(diff + total_active_seconds);
-        };
+    // Ticking interval — only when session is active
+    useEffect(() => {
+        if (status !== 'active') return;
 
-        updateTimer();
-        const interval = setInterval(updateTimer, 1000);
+        const interval = setInterval(() => {
+            const elapsed = Math.floor((Date.now() - tickStartRef.current) / 1000);
+            setDisplaySeconds(baseRef.current + elapsed);
+        }, 1000);
 
         return () => clearInterval(interval);
-    }, [start_time, total_active_seconds]);
+    }, [status]);
 
     const formatTime = (seconds: number): string => {
-        const hours = Math.floor(seconds / 3600);
-        const minutes = Math.floor((seconds % 3600) / 60);
-        const secs = seconds % 60;
-
-        return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+        const h = Math.floor(seconds / 3600);
+        const m = Math.floor((seconds % 3600) / 60);
+        const s = seconds % 60;
+        return `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
     };
 
     const getColor = () => {
-        if (status === 'stopped') return '#d9d9d9'; // gray
-        if (elapsedSeconds >= 9 * 3600) return '#ff4d4f'; // red
-        return '#52c41a'; // green
+        if (status === 'stopped') return '#d9d9d9';
+        if (status === 'paused') return '#faad14';
+        if (displaySeconds >= 9 * 3600) return '#ff4d4f';
+        return '#52c41a';
     };
 
     const color = getColor();
@@ -67,12 +73,13 @@ export const LiveTimer = ({
                         letterSpacing: '0.05em',
                     }}
                 >
-                    {formatTime(elapsedSeconds)}
+                    {formatTime(displaySeconds)}
                 </Title>
-                {elapsedSeconds >= 9 * 3600 && (
-                    <Text type="danger" style={{ fontSize: 14 }}>
-                        Overtime
-                    </Text>
+                {status === 'paused' && (
+                    <Text style={{ color: '#faad14', fontSize: 14 }}>Paused</Text>
+                )}
+                {displaySeconds >= 9 * 3600 && status === 'active' && (
+                    <Text type="danger" style={{ fontSize: 14 }}>Overtime</Text>
                 )}
             </Space>
         </div>

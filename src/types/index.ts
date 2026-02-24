@@ -91,9 +91,9 @@ export interface StartSessionRequest {
 }
 
 export interface ActivityLogRequest {
-    type: 'active' | 'idle';
+    activityType: 'active' | 'idle';
+    durationSeconds: number;
     appName: string;
-    windowTitle: string;
     url?: string;
 }
 

@@ -102,33 +102,35 @@ src/
 └── main.tsx
 ```
 
-## Getting Started
+## 🚀 Getting Started
 
 ### Prerequisites
-- Node.js 18+ and npm
+- Node.js 20+ and npm
 
-### Installation
+### 1. Installation
 
 ```bash
+cd workPulse-frontend
 npm install
 ```
 
-### Environment Variables
+### 2. Environment Variables
 
-Create a `.env` file in the root directory:
+Create a `.env` file in the root of the frontend directory:
 
 ```env
-VITE_API_URL=http://localhost:5000/api
-VITE_WS_URL=http://localhost:5000
+# Backend API URL (match your backend port)
+VITE_API_URL=http://localhost:3000/api
+VITE_WS_URL=http://localhost:3000
 ```
 
-### Development
+### 3. Development
 
 ```bash
 npm run dev
 ```
 
-Visit `http://localhost:3000`
+Visit **[http://localhost:5173](http://localhost:5173)** (or your Vite default port)
 
 ### Build
 
@@ -147,32 +149,34 @@ npm run lint
 The frontend is ready to connect to a backend API. Expected endpoints:
 
 ### Auth
-- `POST /api/auth/login` - Login
-- `POST /api/auth/logout` - Logout
-- `GET /api/auth/me` - Get current user
+- `POST /auth/login` - Login
+- `PUT  /auth/password` - Change password
 
 ### Sessions
-- `POST /api/sessions/start` - Start session
-- `POST /api/sessions/:id/stop` - Stop session
-- `GET /api/sessions/active` - Get active session
-- `POST /api/sessions/:id/activity` - Activity ping
+- `POST /sessions/start` - Start session
+- `POST /sessions/:id/stop` - Stop session
+- `GET  /sessions/active` - Get active session
+- `POST /sessions/:id/activity` - Activity ping
 
 ### Projects
-- `GET /api/projects` - List projects
-- `POST /api/projects` - Create project
+- `GET  /projects` - List projects
+- `POST /projects` - Create project
+- `POST /projects/:id/assign` - Assign users
+
+### Teams
+- `POST   /teams` - Create team
+- `GET    /teams` - List teams
+- `POST   /teams/:id/members` - Add members
+- `POST   /teams/:id/projects` - Create team project
+- `GET    /teams/:id/live-status` - Team monitoring
 
 ### Reports
-- `GET /api/reports` - Get reports
-- `GET /api/reports/productivity-overview` - Productivity data
-- `GET /api/reports/daily-summary` - Daily summary
-- `GET /api/reports/my-daily-summary` - User's daily summary
-
-### Users
-- `GET /api/users` - List users
-- `DELETE /api/users/:id` - Delete user
+- `GET /reports/daily` - Daily summary
+- `GET /reports/organization/analytics` - Org metrics
 
 ### Alerts
-- `GET /api/alerts` - Get alerts
+- `GET /alerts` - Get alerts
+- `PUT /alerts/:id/resolve` - Resolve alert
 
 ### WebSocket Events
 - `USER_ONLINE` - User comes online

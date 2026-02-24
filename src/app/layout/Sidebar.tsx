@@ -20,7 +20,6 @@ export const Sidebar = () => {
 
     const isAdmin = user?.role === 'admin';
     const isManager = user?.role === 'manager';
-    const isEmployee = user?.role === 'employee';
 
     const items: MenuProps['items'] = [
         {
@@ -33,35 +32,34 @@ export const Sidebar = () => {
             icon: <ProjectOutlined />,
             label: 'Projects',
         },
-        // Users/Team - visible to Admin and Manager
+        // Admin: manage all users; Manager/Admin: manage teams
+        ...(isAdmin
+            ? [{
+                key: '/users',
+                icon: <UserOutlined />,
+                label: 'User Management',
+            }]
+            : []),
         ...(isAdmin || isManager
-            ? [
-                {
-                    key: '/users',
-                    icon: <UserOutlined />,
-                    label: isAdmin ? 'Users' : 'My Team',
-                },
-            ]
+            ? [{
+                key: '/teams',
+                icon: <TeamOutlined />,
+                label: 'My Team',
+            }]
             : []),
-        // Reports - visible to all but Employee sees only personal
-        ...(isAdmin || isManager || isEmployee
-            ? [
-                {
-                    key: '/reports',
-                    icon: <FileTextOutlined />,
-                    label: 'Reports',
-                },
-            ]
-            : []),
-        // Alerts - visible to Admin, Manager, and Employee
-        ...(isAdmin || isManager || isEmployee
-            ? [
-                {
-                    key: '/alerts',
-                    icon: <BellOutlined />,
-                    label: 'Alerts',
-                },
-            ]
+        // Reports — all roles, scoped on backend
+        {
+            key: '/reports',
+            icon: <FileTextOutlined />,
+            label: 'Reports',
+        },
+        // Alerts — Admin and Manager only
+        ...(isAdmin || isManager
+            ? [{
+                key: '/alerts',
+                icon: <BellOutlined />,
+                label: 'Alerts',
+            }]
             : []),
     ];
 
